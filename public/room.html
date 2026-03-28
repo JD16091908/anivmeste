@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Комната просмотра</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="room-page" id="roomPage">
+    <header class="top-bar">
+      <a href="/" class="logo">🎌 AniWatch</a>
+
+      <div class="top-center">
+        <span id="roomTitle">Комната</span>
+        <button id="copyLinkBtn" class="small-btn" type="button">Копировать ссылку</button>
+      </div>
+
+      <div class="top-actions">
+        <span id="hostBadge" class="host-badge">Загрузка...</span>
+        <button id="cinemaModeBtn" class="small-btn" type="button">Режим кинотеатра</button>
+      </div>
+    </header>
+
+    <div class="room-layout" id="roomLayout">
+      <aside class="content-sidebar">
+        <section class="search-panel">
+          <div class="search-panel-header">
+            <h2>Поиск</h2>
+            <p id="hostSearchHint" class="muted-text">
+              Искать и выбирать серии может только хост комнаты
+            </p>
+          </div>
+
+          <div class="search-row">
+            <input
+              type="text"
+              id="searchInput"
+              class="search-input compact-search"
+              placeholder="Введите название аниме..."
+              autocomplete="off"
+            />
+          </div>
+
+          <div id="searchStatus" class="small-note"></div>
+        </section>
+
+        <section class="block">
+          <h2>Результаты</h2>
+          <div id="animeList" class="anime-list anime-list-compact"></div>
+        </section>
+
+        <section class="block">
+          <h2>Выбранный тайтл</h2>
+          <div id="selectedAnimeInfo" class="selected-anime-info">
+            Пока ничего не выбрано
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>Плеер</h2>
+          <div id="playerList" class="anime-list anime-list-compact">
+            <div class="empty-state">Сначала выберите тайтл</div>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>Серии</h2>
+          <div id="episodesList" class="episodes-list">
+            <div class="empty-state">Сначала выберите плеер</div>
+          </div>
+        </section>
+      </aside>
+
+      <main class="player-area">
+        <div class="now-playing-bar">
+          <span id="nowPlayingText">Ничего не выбрано</span>
+        </div>
+
+        <div class="player-shell">
+          <div id="hostSyncPanel" class="block host-sync-panel hidden">
+            <h2 style="margin-bottom:10px;">Синхронизация комнаты</h2>
+            <div class="host-sync-buttons">
+              <button id="hostPlayBtn" class="status-btn" type="button">▶ Запустить всем</button>
+              <button id="hostPauseBtn" class="status-btn" type="button">⏸ Пауза всем</button>
+              <button id="hostSeekBtn" class="status-btn" type="button">⏩ Перемотать всем</button>
+            </div>
+            <div class="small-note" style="margin-top:10px;">
+              Эти кнопки отправляют принудительную команду всем зрителям.
+            </div>
+          </div>
+
+          <div class="player-wrapper" id="playerWrapper">
+            <div id="placeholder" class="placeholder">
+              <div>
+                <h2>Выберите аниме и серию</h2>
+                <p>Хост выбирает тайтл, плеер и серию — у всех откроется автоматически</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="right-sidebar" id="rightSidebar">
+        <section class="block">
+          <h2>Участники</h2>
+          <div id="usersList" class="users-list"></div>
+        </section>
+
+        <section class="block">
+          <h2>Мой статус</h2>
+          <div class="status-buttons">
+            <button class="status-btn" data-status="Смотрю" type="button">Смотрю</button>
+            <button class="status-btn" data-status="Пауза" type="button">Пауза</button>
+            <button class="status-btn" data-status="Отстал" type="button">Отстал</button>
+          </div>
+        </section>
+
+        <section class="block chat-block">
+          <h2>Чат</h2>
+          <div id="chatMessages" class="chat-messages"></div>
+
+          <div class="chat-input-box">
+            <input
+              type="text"
+              id="chatInput"
+              placeholder="Введите сообщение..."
+              maxlength="300"
+            />
+            <button id="sendBtn" class="btn btn-primary" type="button">➤</button>
+          </div>
+        </section>
+
+        <button id="syncBtn" class="btn btn-secondary" type="button">
+          Синхронизировать
+        </button>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/player.js"></script>
+  <script src="/chat.js"></script>
+  <script src="/room.js"></script>
+</body>
+</html>
