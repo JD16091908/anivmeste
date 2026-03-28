@@ -14,6 +14,7 @@ let isRemoteAction = false;
 
 let hostAutoSyncTimer = null;
 let viewerAutoSyncTimer = null;
+let kodikTimeRequestTimer = null;
 
 let currentState = {
   animeId: null,
@@ -21,6 +22,7 @@ let currentState = {
   episodeNumber: null,
   embedUrl: null,
   title: null,
+  duration: 0,
   playback: {
     paused: true,
     currentTime: 0,
@@ -221,8 +223,8 @@ function detectPlayerType(embedUrl) {
   const full = String(embedUrl || '').toLowerCase();
   const selected = String(selectedPlayer || '').toLowerCase();
 
+  if (full.includes('kodikplayer.com') || full.includes('kodik') || selected.includes('kodik')) return 'kodik';
   if (full.includes('alloha') || full.includes('iframecvh') || selected.includes('alloha')) return 'alloha';
-  if (full.includes('kodik') || selected.includes('kodik')) return 'kodik';
   if (full.includes('sibnet') || selected.includes('sibnet')) return 'sibnet';
   if (full.includes('cvh') || selected.includes('cvh')) return 'cvh';
   return 'unknown';
@@ -230,54 +232,89 @@ function detectPlayerType(embedUrl) {
 
 let bridge = {
   playerType: 'unknown',
-  sourceWindow: null,
-  sourceOrigin: null
+  iframeWindow: null,
+  iframeOrigin: '*'
 };
 
 function resetBridge() {
   bridge = {
     playerType: 'unknown',
-    sourceWindow: null,
-    sourceOrigin: null
+    iframeWindow: null,
+    iframeOrigin: '*'
   };
 }
 
-function postToCapturedSource(payload) {
-  if (!bridge.sourceWindow || !bridge.sourceOrigin) return false;
+function getIframeElement() {
+  return document.getElementById('videoFrame');
+}
+
+function ensureBridgeWindow() {
+  const iframe = getIframeElement();
+  if (iframe?.contentWindow) {
+    bridge.iframeWindow = iframe.contentWindow;
+    try {
+      const src = iframe.getAttribute('src') || '';
+      const url = new URL(src, window.location.origin);
+      bridge.iframeOrigin = url.origin;
+    } catch {
+      bridge.iframeOrigin = '*';
+    }
+  }
+}
+
+function postToIframe(payload) {
+  ensureBridgeWindow();
+
+  if (!bridge.iframeWindow) return false;
 
   try {
-    bridge.sourceWindow.postMessage(payload, bridge.sourceOrigin);
+    bridge.iframeWindow.postMessage(payload, '*');
     return true;
   } catch {
     return false;
   }
 }
 
+function postKodikCommand(value) {
+  return postToIframe({
+    key: 'kodik_player_api',
+    value
+  });
+}
+
 function sendPlayToIframe() {
-  postToCapturedSource(JSON.stringify({ event: 'play' }));
-  postToCapturedSource(JSON.stringify({ method: 'play' }));
-  postToCapturedSource(JSON.stringify({ command: 'play' }));
-  postToCapturedSource({ event: 'play' });
-  postToCapturedSource({ method: 'play' });
-  postToCapturedSource({ command: 'play' });
+  if (bridge.playerType === 'kodik') {
+    postKodikCommand({ method: 'play' });
+    return;
+  }
+
+  postToIframe(JSON.stringify({ event: 'play' }));
+  postToIframe({ event: 'play' });
 }
 
 function sendPauseToIframe() {
-  postToCapturedSource(JSON.stringify({ event: 'pause' }));
-  postToCapturedSource(JSON.stringify({ method: 'pause' }));
-  postToCapturedSource(JSON.stringify({ command: 'pause' }));
-  postToCapturedSource({ event: 'pause' });
-  postToCapturedSource({ method: 'pause' });
-  postToCapturedSource({ command: 'pause' });
+  if (bridge.playerType === 'kodik') {
+    postKodikCommand({ method: 'pause' });
+    return;
+  }
+
+  postToIframe(JSON.stringify({ event: 'pause' }));
+  postToIframe({ event: 'pause' });
 }
 
 function sendSeekToIframe(time) {
-  postToCapturedSource(JSON.stringify({ event: 'seek', time }));
-  postToCapturedSource(JSON.stringify({ method: 'seek', time }));
-  postToCapturedSource(JSON.stringify({ command: 'seek', time }));
-  postToCapturedSource({ event: 'seek', time });
-  postToCapturedSource({ method: 'seek', time });
-  postToCapturedSource({ command: 'seek', time });
+  if (bridge.playerType === 'kodik') {
+    postKodikCommand({ method: 'seek', seconds: Number(time) || 0 });
+    return;
+  }
+
+  postToIframe(JSON.stringify({ event: 'seek', time }));
+  postToIframe({ event: 'seek', time });
+}
+
+function requestKodikTime() {
+  if (bridge.playerType !== 'kodik') return;
+  postKodikCommand({ method: 'get_time' });
 }
 
 function getLocalPlaybackSnapshot() {
@@ -305,7 +342,9 @@ function getLocalPlaybackSnapshot() {
 function applyPlaybackState(playback) {
   if (!playback) return;
 
-  if (!bridge.sourceWindow || !bridge.sourceOrigin) {
+  ensureBridgeWindow();
+
+  if (!bridge.iframeWindow) {
     pendingPlaybackApply = playback;
     return;
   }
@@ -322,22 +361,26 @@ function applyPlaybackState(playback) {
 
   sendSeekToIframe(targetTime);
 
-  if (paused) {
-    sendPauseToIframe();
-  } else {
-    sendPlayToIframe();
-  }
+  setTimeout(() => {
+    if (paused) {
+      sendPauseToIframe();
+    } else {
+      sendPlayToIframe();
+    }
+  }, 120);
 
   setTimeout(() => {
     isRemoteAction = false;
-  }, 800);
+  }, 1200);
 }
 
-function applyPlaybackStateWhenReady(playback, attempts = 10) {
+function applyPlaybackStateWhenReady(playback, attempts = 12) {
   if (!playback) return;
 
   const tryApply = () => {
-    if (bridge.sourceWindow && bridge.sourceOrigin) {
+    ensureBridgeWindow();
+
+    if (bridge.iframeWindow) {
       applyPlaybackState(playback);
       pendingPlaybackApply = null;
       return;
@@ -349,7 +392,7 @@ function applyPlaybackStateWhenReady(playback, attempts = 10) {
     }
 
     attempts -= 1;
-    setTimeout(tryApply, 900);
+    setTimeout(tryApply, 700);
   };
 
   tryApply();
@@ -361,6 +404,7 @@ function loadIframe(embedUrl, title) {
     return;
   }
 
+  stopKodikTimePolling();
   resetBridge();
 
   const iframe = createFreshIframe(embedUrl);
@@ -375,10 +419,34 @@ function loadIframe(embedUrl, title) {
   }
 
   iframe.addEventListener('load', () => {
+    ensureBridgeWindow();
+
+    if (bridge.playerType === 'kodik') {
+      startKodikTimePolling();
+      setTimeout(() => requestKodikTime(), 1200);
+    }
+
     if (pendingPlaybackApply) {
       setTimeout(() => applyPlaybackStateWhenReady(pendingPlaybackApply), 1200);
     }
   });
+}
+
+function startKodikTimePolling() {
+  stopKodikTimePolling();
+
+  kodikTimeRequestTimer = setInterval(() => {
+    if (!currentState.embedUrl) return;
+    if (bridge.playerType !== 'kodik') return;
+    requestKodikTime();
+  }, 2500);
+}
+
+function stopKodikTimePolling() {
+  if (kodikTimeRequestTimer) {
+    clearInterval(kodikTimeRequestTimer);
+    kodikTimeRequestTimer = null;
+  }
 }
 
 function renderUsers(users) {
@@ -529,6 +597,7 @@ function renderEpisodes(episodes) {
         episodeNumber,
         embedUrl,
         title,
+        duration: 0,
         playback: {
           paused: true,
           currentTime: 0,
@@ -656,13 +725,19 @@ function sendHostPlaybackCommand(action) {
     updatedAt: Date.now()
   };
 
+  if (action === 'play') {
+    sendPlayToIframe();
+  } else if (action === 'pause') {
+    sendPauseToIframe();
+  } else if (action === 'seek') {
+    sendSeekToIframe(snapshot.currentTime);
+  }
+
   socket.emit('player-control', {
     roomId,
     action,
     currentTime: currentState.playback.currentTime
   });
-
-  applyPlaybackState(currentState.playback);
 }
 
 function startAutoSyncLoops() {
@@ -682,11 +757,11 @@ function startAutoSyncLoops() {
         action: snapshot.paused ? 'pause' : 'timeupdate',
         currentTime: snapshot.currentTime
       });
-    }, 3000);
+    }, 2500);
   } else {
     viewerAutoSyncTimer = setInterval(() => {
       socket.emit('sync-request', { roomId });
-    }, 3000);
+    }, 4000);
   }
 }
 
@@ -700,57 +775,73 @@ function stopAutoSyncLoops() {
     clearInterval(viewerAutoSyncTimer);
     viewerAutoSyncTimer = null;
   }
+
+  stopKodikTimePolling();
 }
 
 window.addEventListener('message', (event) => {
   try {
-    let payload = event.data;
+    const payload = event.data;
 
-    if (typeof payload === 'string') {
-      try {
-        payload = JSON.parse(payload);
-      } catch {
-        payload = { raw: event.data };
-      }
-    }
+    if (!payload || typeof payload !== 'object') return;
 
-    const origin = String(event.origin || '');
-    if (!origin) return;
+    if (payload.key?.startsWith?.('kodik_player_')) {
+      const key = payload.key;
+      const value = payload.value;
 
-    bridge.sourceOrigin = origin;
-    bridge.sourceWindow = event.source;
-
-    const eventName = payload?.event || payload?.method || payload?.command || 'unknown';
-    const time = Number(payload?.time || payload?.currentTime || 0) || 0;
-
-    if (!isRemoteAction && roomId !== 'solo' && isHost) {
-      if (eventName === 'play') {
-        currentState.playback.paused = false;
-        currentState.playback.currentTime = time;
+      if (key === 'kodik_player_time_update') {
+        const seconds = Number(value) || 0;
+        currentState.playback.currentTime = seconds;
         currentState.playback.updatedAt = Date.now();
       }
 
-      if (eventName === 'pause') {
-        currentState.playback.paused = true;
-        currentState.playback.currentTime = time;
-        currentState.playback.updatedAt = Date.now();
+      if (key === 'kodik_player_duration_update') {
+        currentState.duration = Number(value) || 0;
       }
 
-      if (eventName === 'seek') {
-        currentState.playback.currentTime = time;
-        currentState.playback.updatedAt = Date.now();
+      if (!isRemoteAction && roomId !== 'solo' && isHost) {
+        if (key === 'kodik_player_play') {
+          currentState.playback.paused = false;
+          currentState.playback.updatedAt = Date.now();
+
+          socket.emit('player-control', {
+            roomId,
+            action: 'play',
+            currentTime: currentState.playback.currentTime || 0
+          });
+        }
+
+        if (key === 'kodik_player_pause') {
+          currentState.playback.paused = true;
+          currentState.playback.updatedAt = Date.now();
+
+          socket.emit('player-control', {
+            roomId,
+            action: 'pause',
+            currentTime: currentState.playback.currentTime || 0
+          });
+        }
+
+        if (key === 'kodik_player_seek') {
+          const seekTime = Number(value?.time) || 0;
+          currentState.playback.currentTime = seekTime;
+          currentState.playback.updatedAt = Date.now();
+
+          socket.emit('player-control', {
+            roomId,
+            action: 'seek',
+            currentTime: seekTime
+          });
+        }
       }
 
-      if (eventName === 'timeupdate') {
-        currentState.playback.currentTime = time;
-        currentState.playback.updatedAt = Date.now();
+      if (pendingPlaybackApply) {
+        const state = pendingPlaybackApply;
+        pendingPlaybackApply = null;
+        setTimeout(() => applyPlaybackState(state), 250);
       }
-    }
 
-    if (pendingPlaybackApply) {
-      const state = pendingPlaybackApply;
-      pendingPlaybackApply = null;
-      setTimeout(() => applyPlaybackState(state), 250);
+      return;
     }
   } catch (error) {
     console.error(error);
@@ -796,6 +887,7 @@ socket.on('sync-state', (state) => {
     episodeNumber: state.episodeNumber ?? null,
     embedUrl: state.embedUrl ?? null,
     title: state.title ?? null,
+    duration: currentState.duration || 0,
     playback: state.playback || {
       paused: true,
       currentTime: 0,
@@ -819,6 +911,7 @@ socket.on('video-changed', (state) => {
     episodeNumber: state.episodeNumber ?? null,
     embedUrl: state.embedUrl ?? null,
     title: state.title ?? null,
+    duration: 0,
     playback: state.playback || {
       paused: true,
       currentTime: 0,
@@ -839,13 +932,19 @@ socket.on('player-control', ({ currentTime, paused, updatedAt }) => {
   if (roomId === 'solo') return;
   if (isHost) return;
 
+  const localSnapshot = getLocalPlaybackSnapshot();
+  const incomingTime = Number(currentTime || 0) || 0;
+  const drift = Math.abs((localSnapshot.currentTime || 0) - incomingTime);
+
   currentState.playback = {
     paused: typeof paused === 'boolean' ? paused : true,
-    currentTime: Number(currentTime || 0) || 0,
+    currentTime: incomingTime,
     updatedAt: Number(updatedAt || Date.now()) || Date.now()
   };
 
-  applyPlaybackStateWhenReady(currentState.playback);
+  if (drift > 1.5 || localSnapshot.paused !== currentState.playback.paused) {
+    applyPlaybackStateWhenReady(currentState.playback);
+  }
 });
 
 socket.on('room-users', (users) => {
@@ -875,7 +974,10 @@ if (hostPauseBtn) {
 
 if (hostSeekBtn) {
   hostSeekBtn.addEventListener('click', () => {
-    sendHostPlaybackCommand('seek');
+    requestKodikTime();
+    setTimeout(() => {
+      sendHostPlaybackCommand('seek');
+    }, 150);
   });
 }
 
@@ -891,6 +993,10 @@ if (searchInput) {
 
 if (syncBtn) {
   syncBtn.addEventListener('click', () => {
+    if (bridge.playerType === 'kodik') {
+      requestKodikTime();
+    }
+
     if (roomId !== 'solo') {
       socket.emit('sync-request', { roomId });
     }
