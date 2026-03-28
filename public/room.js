@@ -12,6 +12,8 @@ let lastSearchResults = [];
 let pendingPlaybackApply = null;
 let isRemoteAction = false;
 let userInteractedWithPlayer = false;
+let lastManualViewerInteractionAt = 0;
+let lastRemoteApplyAt = 0;
 
 let hostAutoSyncTimer = null;
 let viewerAutoSyncTimer = null;
@@ -30,6 +32,11 @@ let currentState = {
     updatedAt: 0
   }
 };
+
+const VIEWER_INTERACTION_COOLDOWN = 5000;
+const REMOTE_APPLY_COOLDOWN = 1200;
+const HARD_SYNC_DRIFT = 4;
+const SOFT_SYNC_DRIFT = 1.5;
 
 const roomTitle = document.getElementById('roomTitle');
 const hostBadge = document.getElementById('hostBadge');
@@ -203,7 +210,7 @@ function showViewerSyncHint() {
   placeholder.innerHTML = `
     <div>
       <h2>Серия загружена</h2>
-      <p>Если видео не стартовало автоматически, кликните по плееру один раз — после этого синхронизация будет работать лучше.</p>
+      <p>Если видео не стартовало автоматически, нажмите на плеер один раз. После этого синхронизация будет стабильнее.</p>
     </div>
   `;
 }
@@ -340,7 +347,19 @@ function getLocalPlaybackSnapshot() {
   };
 }
 
-function applyPlaybackState(playback) {
+function viewerRecentlyInteracted() {
+  return !isHost && roomId !== 'solo' && (Date.now() - lastManualViewerInteractionAt < VIEWER_INTERACTION_COOLDOWN);
+}
+
+function canApplyRemoteNow() {
+  return Date.now() - lastRemoteApplyAt > REMOTE_APPLY_COOLDOWN;
+}
+
+function markRemoteApply() {
+  lastRemoteApplyAt = Date.now();
+}
+
+function applyPlaybackState(playback, options = {}) {
   if (!playback) return;
 
   ensureBridgeWindow();
@@ -358,15 +377,35 @@ function applyPlaybackState(playback) {
     targetTime += (Date.now() - updatedAt) / 1000;
   }
 
-  isRemoteAction = true;
+  const localSnapshot = getLocalPlaybackSnapshot();
+  const drift = Math.abs(localSnapshot.currentTime - targetTime);
 
-  sendSeekToIframe(targetTime);
+  if (!options.force && viewerRecentlyInteracted()) {
+    if (drift < HARD_SYNC_DRIFT) {
+      return;
+    }
+  }
+
+  if (!options.force && !canApplyRemoteNow()) {
+    return;
+  }
+
+  isRemoteAction = true;
+  markRemoteApply();
+
+  if (drift > SOFT_SYNC_DRIFT || options.forceSeek) {
+    sendSeekToIframe(targetTime);
+  }
 
   if (paused) {
-    setTimeout(() => sendPauseToIframe(), 120);
+    if (!viewerRecentlyInteracted() || options.force) {
+      setTimeout(() => sendPauseToIframe(), 140);
+    }
   } else {
     if (isHost || roomId === 'solo' || userInteractedWithPlayer) {
-      setTimeout(() => sendPlayToIframe(), 120);
+      if (!viewerRecentlyInteracted() || options.force) {
+        setTimeout(() => sendPlayToIframe(), 140);
+      }
     } else {
       showViewerSyncHint();
     }
@@ -374,17 +413,17 @@ function applyPlaybackState(playback) {
 
   setTimeout(() => {
     isRemoteAction = false;
-  }, 1000);
+  }, 900);
 }
 
-function applyPlaybackStateWhenReady(playback, attempts = 12) {
+function applyPlaybackStateWhenReady(playback, attempts = 12, options = {}) {
   if (!playback) return;
 
   const tryApply = () => {
     ensureBridgeWindow();
 
     if (bridge.iframeWindow) {
-      applyPlaybackState(playback);
+      applyPlaybackState(playback, options);
       pendingPlaybackApply = null;
       return;
     }
@@ -430,7 +469,7 @@ function loadIframe(embedUrl, title) {
     }
 
     if (pendingPlaybackApply) {
-      setTimeout(() => applyPlaybackStateWhenReady(pendingPlaybackApply), 1200);
+      setTimeout(() => applyPlaybackStateWhenReady(pendingPlaybackApply, 12, { force: true, forceSeek: true }), 1200);
     }
 
     if (!isHost && roomId !== 'solo') {
@@ -773,7 +812,7 @@ function startAutoSyncLoops() {
   } else {
     viewerAutoSyncTimer = setInterval(() => {
       socket.emit('sync-request', { roomId });
-    }, 4000);
+    }, 5000);
   }
 }
 
@@ -793,10 +832,12 @@ function stopAutoSyncLoops() {
 
 window.addEventListener('pointerdown', () => {
   userInteractedWithPlayer = true;
+  lastManualViewerInteractionAt = Date.now();
 }, { once: false });
 
 window.addEventListener('keydown', () => {
   userInteractedWithPlayer = true;
+  lastManualViewerInteractionAt = Date.now();
 }, { once: false });
 
 window.addEventListener('message', (event) => {
@@ -865,7 +906,7 @@ window.addEventListener('message', (event) => {
       if (pendingPlaybackApply) {
         const state = pendingPlaybackApply;
         pendingPlaybackApply = null;
-        setTimeout(() => applyPlaybackState(state), 250);
+        setTimeout(() => applyPlaybackState(state, { force: true, forceSeek: true }), 250);
       }
 
       return;
@@ -925,7 +966,7 @@ socket.on('sync-state', (state) => {
   if (currentState.embedUrl) {
     loadIframe(currentState.embedUrl, currentState.title);
     pendingPlaybackApply = currentState.playback;
-    applyPlaybackStateWhenReady(currentState.playback);
+    applyPlaybackStateWhenReady(currentState.playback, 12, { force: true, forceSeek: true });
   } else {
     showPlaceholder('Ничего не выбрано', 'Хост пока не запустил серию');
   }
@@ -949,28 +990,46 @@ socket.on('video-changed', (state) => {
   if (currentState.embedUrl) {
     loadIframe(currentState.embedUrl, currentState.title);
     pendingPlaybackApply = currentState.playback;
-    applyPlaybackStateWhenReady(currentState.playback);
+    applyPlaybackStateWhenReady(currentState.playback, 12, { force: true, forceSeek: true });
   } else {
     showPlaceholder('Ничего не выбрано', 'Хост пока не запустил серию');
   }
 });
 
-socket.on('player-control', ({ currentTime, paused, updatedAt }) => {
+socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
   if (roomId === 'solo') return;
   if (isHost) return;
 
   const localSnapshot = getLocalPlaybackSnapshot();
   const incomingTime = Number(currentTime || 0) || 0;
   const drift = Math.abs((localSnapshot.currentTime || 0) - incomingTime);
+  const incomingPaused = typeof paused === 'boolean' ? paused : action === 'pause';
 
   currentState.playback = {
-    paused: typeof paused === 'boolean' ? paused : true,
+    paused: incomingPaused,
     currentTime: incomingTime,
     updatedAt: Number(updatedAt || Date.now()) || Date.now()
   };
 
-  if (drift > 1.5 || localSnapshot.paused !== currentState.playback.paused) {
-    applyPlaybackStateWhenReady(currentState.playback);
+  if (action === 'seek') {
+    applyPlaybackStateWhenReady(currentState.playback, 12, { force: true, forceSeek: true });
+    return;
+  }
+
+  if (action === 'pause') {
+    if (!viewerRecentlyInteracted()) {
+      applyPlaybackStateWhenReady(currentState.playback, 12, { force: true });
+    }
+    return;
+  }
+
+  if (drift > HARD_SYNC_DRIFT) {
+    applyPlaybackStateWhenReady(currentState.playback, 12, { force: true, forceSeek: true });
+    return;
+  }
+
+  if (drift > SOFT_SYNC_DRIFT && !viewerRecentlyInteracted()) {
+    applyPlaybackStateWhenReady(currentState.playback, 12, { forceSeek: true });
   }
 });
 
