@@ -5,10 +5,10 @@ const dns = require('dns').promises;
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 
-const expressApp = express();
-expressApp.use(express.json());
+const app = express();
+app.use(express.json());
 
-const server = http.createServer(expressApp);
+const server = http.createServer(app);
 const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
@@ -23,17 +23,17 @@ if (KODIK_TOKEN) {
   console.log('❌ KODIK API TOKEN не найден');
 }
 
-expressApp.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
-expressApp.get('/', (req, res) => {
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-expressApp.get('/room/:roomId', (req, res) => {
+app.get('/room/:roomId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'room.html'));
 });
 
-expressApp.get('/room/:roomId/*', (req, res) => {
+app.get('/room/:roomId/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'room.html'));
 });
 
@@ -86,47 +86,23 @@ async function kodikGet(endpoint, params = {}) {
   return data;
 }
 
-function normalizePoster(item) {
-  const poster =
-    item?.poster_url ||
-    item?.poster ||
-    item?.material_data?.poster_url ||
-    item?.material_data?.poster ||
-    item?.material_data?.screenshots?.[0] ||
-    '';
+// --- Helper Functions ---
 
+function normalizePoster(item) {
+  const poster = item?.poster_url || item?.poster || item?.material_data?.poster_url || item?.material_data?.poster || item?.material_data?.screenshots?.[0] || '';
   if (!poster) return '';
   if (poster.startsWith('//')) return `https:${poster}`;
   return poster;
 }
 
 function normalizeTitle(item) {
-  return (
-    item?.title ||
-    item?.ru_title ||
-    item?.material_data?.title ||
-    item?.material_data?.ru_title ||
-    item?.material_data?.anime_title ||
-    item?.material_data?.full_title ||
-    'Без названия'
-  );
+  return item?.title || item?.ru_title || item?.material_data?.title || item?.material_data?.ru_title || item?.material_data?.anime_title || item?.material_data?.full_title || 'Без названия';
 }
 
-function normalizeDescription(item) {
-  return item?.material_data?.description || item?.description || '';
-}
-
-function normalizeYear(item) {
-  return item?.year || item?.material_data?.year || '';
-}
-
-function normalizeType(item) {
-  return item?.type || item?.material_data?.type || item?.material_data?.anime_kind || '';
-}
-
-function normalizeStatus(item) {
-  return item?.material_data?.anime_status || item?.status || '';
-}
+function normalizeDescription(item) { return item?.material_data?.description || item?.description || ''; }
+function normalizeYear(item) { return item?.year || item?.material_data?.year || ''; }
+function normalizeType(item) { return item?.type || item?.material_data?.type || item?.material_data?.anime_kind || ''; }
+function normalizeStatus(item) { return item?.material_data?.anime_status || item?.status || ''; }
 
 function ensureKodikToken(res) {
   if (!KODIK_TOKEN) {
@@ -151,28 +127,18 @@ function makeAnimeKey(item) {
 
 function mapSearchResults(results) {
   const grouped = new Map();
-
   for (const item of results || []) {
     const key = makeAnimeKey(item);
-
     if (!grouped.has(key)) {
       grouped.set(key, {
-        animeId: key,
-        animeUrl: key,
-        title: normalizeTitle(item),
-        year: normalizeYear(item),
-        season: '',
-        description: normalizeDescription(item),
-        poster: normalizePoster(item),
-        status: normalizeStatus(item),
-        type: normalizeType(item),
+        animeId: key, animeUrl: key, title: normalizeTitle(item), year: normalizeYear(item), season: '',
+        description: normalizeDescription(item), poster: normalizePoster(item), status: normalizeStatus(item), type: normalizeType(item),
         shikimoriId: item?.shikimori_id || item?.material_data?.shikimori_id || null,
         kinopoiskId: item?.kinopoisk_id || item?.material_data?.kinopoisk_id || null,
         imdbId: item?.imdb_id || item?.material_data?.imdb_id || null
       });
     }
   }
-
   return [...grouped.values()];
 }
 
@@ -188,100 +154,58 @@ function extractEpisodesFromItem(item) {
 
   for (const [seasonNumber, seasonData] of Object.entries(seasons)) {
     if (!seasonData || typeof seasonData !== 'object') continue;
-
     const episodesObj = seasonData?.episodes || seasonData;
     if (typeof episodesObj !== 'object') continue;
 
     for (const [episodeNumber, link] of Object.entries(episodesObj)) {
-      const iframeUrl = buildEpisodeIframe(
-        typeof link === 'string' ? link : link?.link || link?.url || null
-      );
-
+      const iframeUrl = buildEpisodeIframe(typeof link === 'string' ? link : link?.link || link?.url || null);
       if (!iframeUrl) continue;
 
       episodes.push({
-        videoId: `${seasonNumber}-${episodeNumber}`,
-        number: Number(episodeNumber) || 0,
-        season: Number(seasonNumber) || 1,
-        index: Number(episodeNumber) || 0,
-        iframeUrl,
-        dubbing: item?.translation?.title || item?.translation?.name || '',
-        player: item?.translation?.title || item?.translation?.name || 'kodik',
-        playerId: item?.translation?.id || null,
-        translationId: item?.translation?.id || null,
-        translationTitle: item?.translation?.title || item?.translation?.name || '',
-        views: 0,
-        duration: 0
+        videoId: `${seasonNumber}-${episodeNumber}`, number: Number(episodeNumber) || 0, season: Number(seasonNumber) || 1,
+        index: Number(episodeNumber) || 0, iframeUrl, dubbing: item?.translation?.title || item?.translation?.name || '',
+        player: item?.translation?.title || item?.translation?.name || 'kodik', playerId: item?.translation?.id || null,
+        translationId: item?.translation?.id || null, translationTitle: item?.translation?.title || item?.translation?.name || '', views: 0, duration: 0
       });
     }
   }
 
-  if (episodes.length > 0) {
-    return episodes.sort((a, b) => {
-      if (a.season !== b.season) return a.season - b.season;
-      return a.number - b.number;
-    });
-  }
+  if (episodes.length > 0) return episodes.sort((a, b) => a.season !== b.season ? a.season - b.season : a.number - b.number);
 
   const link = buildEpisodeIframe(item?.link);
   if (link) {
     episodes.push({
-      videoId: `${item?.id || 'movie'}`,
-      number: 1,
-      season: 1,
-      index: 1,
-      iframeUrl: link,
-      dubbing: item?.translation?.title || item?.translation?.name || '',
-      player: item?.translation?.title || item?.translation?.name || 'kodik',
-      playerId: item?.translation?.id || null,
-      translationId: item?.translation?.id || null,
-      translationTitle: item?.translation?.title || item?.translation?.name || '',
-      views: 0,
-      duration: 0
+      videoId: `${item?.id || 'movie'}`, number: 1, season: 1, index: 1, iframeUrl: link,
+      dubbing: item?.translation?.title || item?.translation?.name || '', player: item?.translation?.title || item?.translation?.name || 'kodik',
+      playerId: item?.translation?.id || null, translationId: item?.translation?.id || null,
+      translationTitle: item?.translation?.title || item?.translation?.name || '', views: 0, duration: 0
     });
   }
-
   return episodes;
 }
 
 function mergeEpisodes(items) {
   const episodeMap = new Map();
-
   for (const item of items || []) {
     const episodes = extractEpisodesFromItem(item);
-
     for (const episode of episodes) {
       const key = `${episode.season}:${episode.number}:${episode.translationId || episode.translationTitle || ''}`;
-
-      if (!episodeMap.has(key)) {
-        episodeMap.set(key, episode);
-      }
+      if (!episodeMap.has(key)) episodeMap.set(key, episode);
     }
   }
-
-  return [...episodeMap.values()].sort((a, b) => {
-    if ((a.season || 1) !== (b.season || 1)) return (a.season || 1) - (b.season || 1);
-    return (a.number || 0) - (b.number || 0);
-  });
+  return [...episodeMap.values()].sort((a, b) => ((a.season || 1) - (b.season || 1)) || (a.number || 0) - (b.number || 0));
 }
 
 async function fetchAnimeByKey(animeKey) {
-  let params = {
-    with_material_data: 'true',
-    with_episodes: 'true'
-  };
-
+  let params = { with_material_data: 'true', with_episodes: 'true' };
   const colonIndex = animeKey.indexOf(':');
   const kind = colonIndex > -1 ? animeKey.slice(0, colonIndex) : '';
   const value = colonIndex > -1 ? animeKey.slice(colonIndex + 1) : animeKey;
 
-  if (kind === 'shikimori' && value) {
-    params.shikimori_id = value;
-  } else if (kind === 'kinopoisk' && value) {
-    params.kinopoisk_id = value;
-  } else if (kind === 'imdb' && value) {
-    params.imdb_id = value;
-  } else if (kind === 'title' && value) {
+  if (kind === 'shikimori' && value) params.shikimori_id = value;
+  else if (kind === 'kinopoisk' && value) params.kinopoisk_id = value;
+  else if (kind === 'imdb' && value) params.imdb_id = value;
+  else if (kind === 'title' && value) {
     const [titlePart, yearPart] = value.split('::');
     params.title = titlePart || '';
     if (yearPart) params.year = yearPart;
@@ -293,289 +217,203 @@ async function fetchAnimeByKey(animeKey) {
   let results = Array.isArray(data?.results) ? data.results : [];
 
   if (!results.length) {
-    const listParams = {
-      ...params,
-      types: 'anime-serial,anime'
-    };
+    const listParams = { ...params, types: 'anime-serial,anime' };
     data = await kodikGet('/list', listParams);
     results = Array.isArray(data?.results) ? data.results : [];
   }
-
   return results;
 }
 
-expressApp.get('/api/health/kodik', async (req, res) => {
+// --- Routes ---
+
+app.get('/api/health/kodik', async (req, res) => {
   try {
     const dnsOk = await checkHostAvailable('kodik-api.com');
-    if (!dnsOk) {
-      return res.status(500).json({
-        ok: false,
-        error: 'DNS lookup failed for kodik-api.com'
-      });
-    }
-
-    const data = await kodikGet('/search', {
-      title: 'Naruto',
-      with_material_data: 'true'
-    });
-
-    return res.json({
-      ok: true,
-      results: Array.isArray(data?.results) ? data.results.length : 0
-    });
+    if (!dnsOk) return res.status(500).json({ ok: false, error: 'DNS lookup failed for kodik-api.com' });
+    const data = await kodikGet('/search', { title: 'Naruto', with_material_data: 'true' });
+    return res.json({ ok: true, results: Array.isArray(data?.results) ? data.results.length : 0 });
   } catch (error) {
-    return res.status(500).json({
-      ok: false,
-      error: error.message
-    });
+    return res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-expressApp.get('/api/yummy/search', async (req, res) => {
+app.get('/api/yummy/search', async (req, res) => {
   try {
     if (!ensureKodikToken(res)) return;
-
     const query = (req.query.q || req.query.query || req.query.title || '').trim();
-
-    if (!query || query.length < 2) {
-      return res.status(400).json({ error: 'Введите минимум 2 символа для поиска' });
-    }
+    if (!query || query.length < 2) return res.status(400).json({ error: 'Введите минимум 2 символа для поиска' });
 
     console.log(`[SEARCH] Запрос: "${query}"`);
-
-    let data = await kodikGet('/search', {
-      title: query,
-      with_material_data: 'true'
-    });
-
+    let data = await kodikGet('/search', { title: query, with_material_data: 'true' });
     let results = Array.isArray(data?.results) ? data.results : [];
 
     if (!results.length) {
-      data = await kodikGet('/list', {
-        title: query,
-        with_material_data: 'true',
-        types: 'anime-serial,anime'
-      });
+      data = await kodikGet('/list', { title: query, with_material_data: 'true', types: 'anime-serial,anime' });
       results = Array.isArray(data?.results) ? data.results : [];
     }
-
-    const mapped = mapSearchResults(results);
-
-    console.log(`[SEARCH] Kodik results: ${results.length}, grouped: ${mapped.length}`);
-
-    return res.json(mapped);
+    console.log(`[SEARCH] Kodik results: ${results.length}, grouped: ${mapSearchResults(results).length}`);
+    return res.json(mapSearchResults(results));
   } catch (error) {
     console.error('KODIK SEARCH ERROR:', error.message);
-    return res.status(500).json({
-      error: 'Не удалось выполнить поиск',
-      details: error.message
-    });
+    return res.status(500).json({ error: 'Не удалось выполнить поиск', details: error.message });
   }
 });
 
-expressApp.get('/api/yummy/anime/:animeUrl', async (req, res) => {
+app.get('/api/yummy/anime/:animeUrl', async (req, res) => {
   try {
     if (!ensureKodikToken(res)) return;
-
     const animeUrl = decodeURIComponent(req.params.animeUrl);
     const results = await fetchAnimeByKey(animeUrl);
-
-    if (!results.length) {
-      return res.status(404).json({ error: 'Аниме не найдено' });
-    }
+    if (!results.length) return res.status(404).json({ error: 'Аниме не найдено' });
 
     const first = results[0];
-    const animeId = makeAnimeKey(first);
     const videos = mergeEpisodes(results);
-
     return res.json({
-      animeId,
-      animeUrl: animeId,
-      title: normalizeTitle(first),
-      description: normalizeDescription(first),
-      poster: normalizePoster(first),
-      year: normalizeYear(first),
-      type: normalizeType(first),
-      status: normalizeStatus(first),
-      episodes: videos.length || null,
-      videos
+      animeId: makeAnimeKey(first), animeUrl: makeAnimeKey(first), title: normalizeTitle(first),
+      description: normalizeDescription(first), poster: normalizePoster(first), year: normalizeYear(first),
+      type: normalizeType(first), status: normalizeStatus(first), episodes: videos.length || null, videos
     });
   } catch (error) {
     console.error('KODIK ANIME LOAD ERROR:', error.message);
-    return res.status(500).json({
-      error: 'Не удалось загрузить аниме',
-      details: error.message
-    });
+    return res.status(500).json({ error: 'Не удалось загрузить аниме', details: error.message });
   }
 });
 
-expressApp.get('/api/yummy/anime-id/:animeId/videos', async (req, res) => {
+app.get('/api/yummy/anime-id/:animeId/videos', async (req, res) => {
   try {
     if (!ensureKodikToken(res)) return;
-
     const animeId = decodeURIComponent(req.params.animeId);
     const results = await fetchAnimeByKey(animeId);
-    const videos = mergeEpisodes(results);
-
-    return res.json(videos);
+    return res.json(mergeEpisodes(results));
   } catch (error) {
     console.error('KODIK VIDEOS ONLY ERROR:', error.message);
-    return res.status(500).json({
-      error: 'Не удалось загрузить серии',
-      details: error.message
-    });
+    return res.status(500).json({ error: 'Не удалось загрузить серии', details: error.message });
   }
 });
 
-function generateGuestKey() {
-  return crypto.randomBytes(12).toString('hex');
-}
+// --- Room Logic ---
 
 function ensureRoom(roomId) {
   if (!rooms[roomId]) {
     rooms[roomId] = {
       users: [],
-      creatorUserKey: null,
-      hostUserKey: null,
+      creatorUserKey: null, // Кто создал комнату первым раз
+      hostUserKey: null,    // Текущий владелец роли хоста (должен совпадать с creator, пока тот жив)
       hostSocketId: null,
       videoState: {
-        src: null,
-        embedUrl: null,
-        title: 'Ничего не выбрано',
-        animeId: null,
-        animeUrl: null,
-        episodeNumber: null,
-        playback: {
-          paused: true,
-          currentTime: null,
-          updatedAt: Date.now()
-        }
+        src: null, embedUrl: null, title: 'Ничего не выбрано', animeId: null, animeUrl: null,
+        episodeNumber: null, playback: { paused: true, currentTime: null, updatedAt: Date.now() }
       }
     };
   }
-
   return rooms[roomId];
 }
 
 function getEffectivePlayback(playback) {
-  const safe = playback || {
-    paused: true,
-    currentTime: null,
-    updatedAt: Date.now()
-  };
-
-  let currentTime = typeof safe.currentTime === 'number' && !Number.isNaN(safe.currentTime)
-    ? safe.currentTime
-    : null;
-
+  const safe = playback || { paused: true, currentTime: null, updatedAt: Date.now() };
+  let currentTime = typeof safe.currentTime === 'number' && !Number.isNaN(safe.currentTime) ? safe.currentTime : null;
   const paused = !!safe.paused;
   const updatedAt = Number(safe.updatedAt || Date.now()) || Date.now();
-
+  
+  // Не вычисляем время вперед, если нет текущего времени (чтобы избежать скачка в будущее при старте)
   if (currentTime !== null && !paused) {
     currentTime += (Date.now() - updatedAt) / 1000;
   }
-
-  return {
-    paused,
-    currentTime,
-    updatedAt: Date.now()
-  };
+  return { paused, currentTime, updatedAt: Date.now() };
 }
 
 function getCurrentRoomState(roomId) {
   const room = rooms[roomId];
   if (!room) return null;
-
   return {
-    src: room.videoState.src,
-    embedUrl: room.videoState.embedUrl,
-    title: room.videoState.title,
-    hostId: room.hostSocketId,
-    animeId: room.videoState.animeId,
-    animeUrl: room.videoState.animeUrl,
-    episodeNumber: room.videoState.episodeNumber,
-    playback: getEffectivePlayback(room.videoState.playback)
+    src: room.videoState.src, embedUrl: room.videoState.embedUrl, title: room.videoState.title,
+    hostId: room.hostSocketId, animeId: room.videoState.animeId, animeUrl: room.videoState.animeUrl,
+    episodeNumber: room.videoState.episodeNumber, playback: getEffectivePlayback(room.videoState.playback)
   };
 }
 
 function switchToVideo(roomId, payload) {
   const room = rooms[roomId];
   if (!room) return null;
-
   room.videoState.src = payload.videoSrc || null;
   room.videoState.embedUrl = payload.embedUrl || null;
   room.videoState.title = payload.title || 'Без названия';
   room.videoState.animeId = payload.animeId ?? null;
   room.videoState.animeUrl = payload.animeUrl ?? null;
   room.videoState.episodeNumber = payload.episodeNumber ?? null;
-  room.videoState.playback = {
-    paused: true,
-    currentTime: null,
-    updatedAt: Date.now()
-  };
-
+  // Reset playback cleanly
+  room.videoState.playback = { paused: true, currentTime: null, updatedAt: Date.now() };
   return getCurrentRoomState(roomId);
 }
 
 function getUsersWithMeta(roomId) {
   const room = rooms[roomId];
   if (!room) return [];
-
-  return room.users.map(user => ({
-    ...user,
-    isHost: user.userKey === room.hostUserKey
-  }));
+  return room.users.map(user => ({ ...user, isHost: user.userKey === room.hostUserKey }));
 }
 
-function syncHostSocketByUserKey(room) {
-  if (!room?.hostUserKey) return;
-
-  const hostUser = room.users.find(user => user.userKey === room.hostUserKey);
-  room.hostSocketId = hostUser?.id || null;
+function updateHostPointer(room) {
+  // Просто обновляем сокет ID того, кто является владельцем ключа
+  room.hostSocketId = null;
+  const hostUser = room.users.find(u => u.userKey === room.hostUserKey);
+  if (hostUser) room.hostSocketId = hostUser.id;
 }
 
 function assignHostIfNeeded(room) {
-  if (!room) return;
-
+  // ПРАВИЛО: Владелец (creator) всегда приоритетный хост.
+  // Если он тут — никто не перебивает.
   if (room.creatorUserKey) {
-    const creatorStillHere = room.users.some(user => user.userKey === room.creatorUserKey);
-    if (creatorStillHere) {
+    const creatorHere = room.users.some(u => u.userKey === room.creatorUserKey);
+    if (creatorHere) {
       room.hostUserKey = room.creatorUserKey;
-      syncHostSocketByUserKey(room);
+      updateHostPointer(room);
       return;
     }
+    // Создатель ушел навсегда -> можно передать роль дальше
+    room.creatorUserKey = null;
   }
 
+  // Если был сохранен временный хост и он тут
   if (room.hostUserKey) {
-    const hostStillHere = room.users.some(user => user.userKey === room.hostUserKey);
-    if (hostStillHere) {
-      syncHostSocketByUserKey(room);
+    if (room.users.some(u => u.userKey === room.hostUserKey)) {
+      updateHostPointer(room);
       return;
     }
+    room.hostUserKey = null;
   }
 
+  // Если хоста нет, назначаем первого попавшегося (кроме solo)
   if (room.users.length > 0) {
     room.hostUserKey = room.users[0].userKey;
-    syncHostSocketByUserKey(room);
-  } else {
-    room.hostUserKey = null;
-    room.hostSocketId = null;
+    updateHostPointer(room);
   }
 }
 
 io.on('connection', (socket) => {
   socket.on('join-room', ({ roomId, username, userKey }) => {
     if (!roomId) return;
+    
+    // Для Solo режима хост всегда сам
+    if (roomId === 'solo') {
+      socket.data.username = username || 'Гость';
+      socket.emit('you-are-host');
+      socket.emit('sync-state', {
+        embedUrl: null, title: null, isHost: true, 
+        playback: { paused: true, currentTime: null, updatedAt: Date.now() }
+      });
+      return;
+    }
 
     const room = ensureRoom(roomId);
-    const finalUserKey = userKey || generateGuestKey();
+    const finalUserKey = userKey || 'temp_' + Math.random().toString(36).slice(2, 8);
 
     socket.join(roomId);
     socket.data.roomId = roomId;
     socket.data.username = username || 'Гость';
     socket.data.userKey = finalUserKey;
 
-    room.users = room.users.filter(user => user.userKey !== finalUserKey);
+    // Удаляем старые записи этого юзера (если обновился сокет)
+    room.users = room.users.filter(u => u.userKey !== finalUserKey);
 
     room.users.push({
       id: socket.id,
@@ -584,6 +422,7 @@ io.on('connection', (socket) => {
       watchStatus: 'Не начал'
     });
 
+    // Если комнаты не было (или создателя нет), становимся создателем
     if (!room.creatorUserKey) {
       room.creatorUserKey = finalUserKey;
     }
@@ -603,84 +442,45 @@ io.on('connection', (socket) => {
     });
 
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    socket.to(roomId).emit('system-message', {
-      text: `${socket.data.username} присоединился к комнате`
-    });
+    socket.to(roomId).emit('system-message', { text: `${socket.data.username} присоединился` });
   });
 
   socket.on('change-video', ({ roomId, videoSrc, embedUrl, title, animeId, animeUrl, episodeNumber }) => {
     const room = rooms[roomId];
     if (!room) return;
+    // ТОЛЬКО ХОСТ МОЖЕТ МЕНЯТЬ ВИДЕО
     if (room.hostUserKey !== socket.data.userKey) return;
 
-    const state = switchToVideo(roomId, {
-      videoSrc,
-      embedUrl,
-      title,
-      animeId,
-      animeUrl,
-      episodeNumber
-    });
-
+    const state = switchToVideo(roomId, { videoSrc, embedUrl, title, animeId, animeUrl, episodeNumber });
     if (!state) return;
 
-    room.users = room.users.map(user => ({
-      ...user,
-      watchStatus: user.userKey === socket.data.userKey ? 'Смотрю' : 'Ожидает запуск'
-    }));
-
     io.to(roomId).emit('video-changed', state);
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    io.to(roomId).emit('system-message', {
-      text: `Хост выбрал: ${title}`
-    });
+    io.to(roomId).emit('system-message', { text: `Хост выбрал: ${title}` });
   });
 
   socket.on('player-control', ({ roomId, action, currentTime }) => {
     const room = rooms[roomId];
     if (!room) return;
+    // ТОЛЬКО ХОСТ ПОСЫЛАЕТ СИНХРУ
     if (room.hostUserKey !== socket.data.userKey) return;
 
-    if (!room.videoState.playback) {
-      room.videoState.playback = {
-        paused: true,
-        currentTime: null,
-        updatedAt: Date.now()
-      };
-    }
+    if (!room.videoState.playback) room.videoState.playback = { paused: true, currentTime: null, updatedAt: Date.now() };
 
-    const safeTime = typeof currentTime === 'number' && !Number.isNaN(currentTime)
-      ? currentTime
-      : null;
+    const safeTime = typeof currentTime === 'number' && !Number.isNaN(currentTime) ? currentTime : null;
 
     if (action === 'seek') {
       if (safeTime !== null) {
         room.videoState.playback.currentTime = safeTime;
         room.videoState.playback.updatedAt = Date.now();
       }
-    }
-
-    if (action === 'play') {
+    } else if (action === 'play') {
       room.videoState.playback.paused = false;
-
-      if (safeTime !== null && safeTime > 0.3) {
-        room.videoState.playback.currentTime = safeTime;
-      }
-
+      if (safeTime !== null && safeTime > 0.3) room.videoState.playback.currentTime = safeTime;
       room.videoState.playback.updatedAt = Date.now();
     } else if (action === 'pause') {
       room.videoState.playback.paused = true;
-
-      if (safeTime !== null && safeTime > 0.3) {
-        room.videoState.playback.currentTime = safeTime;
-      }
-
+      if (safeTime !== null && safeTime > 0.3) room.videoState.playback.currentTime = safeTime;
       room.videoState.playback.updatedAt = Date.now();
-    } else if (action === 'timeupdate') {
-      if (safeTime !== null && safeTime > 0.3) {
-        room.videoState.playback.currentTime = safeTime;
-        room.videoState.playback.updatedAt = Date.now();
-      }
     }
 
     socket.to(roomId).emit('player-control', {
@@ -694,71 +494,45 @@ io.on('connection', (socket) => {
   socket.on('update-watch-status', ({ roomId, status }) => {
     const room = rooms[roomId];
     if (!room) return;
-
     const user = room.users.find(u => u.userKey === socket.data.userKey);
     if (!user) return;
-
     user.watchStatus = status || 'Неизвестно';
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
   });
 
   socket.on('sync-request', ({ roomId }) => {
+    // Безопасный запрос состояния без смены хоста
     const state = getCurrentRoomState(roomId);
-    const room = rooms[roomId];
-    if (!state || !room) return;
-
-    const isHostNow = room.hostUserKey === socket.data.userKey;
-
-    socket.emit('sync-state', {
-      ...state,
-      isHost: isHostNow
-    });
-
-    socket.emit('system-message', {
-      text: 'Контент в комнате синхронизирован'
-    });
+    if (!state) return;
+    socket.emit('sync-state', { ...state, isHost: rooms[roomId]?.hostUserKey === socket.data.userKey });
   });
 
   socket.on('chat-message', ({ roomId, username, message }) => {
     if (!roomId || !message?.trim()) return;
-
-    io.to(roomId).emit('chat-message', {
-      username: username || 'Гость',
-      message: message.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    });
+    io.to(roomId).emit('chat-message', { username: username || 'Гость', message: message.trim(), time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
   });
 
   socket.on('disconnect', () => {
     const roomId = socket.data.roomId;
     if (!roomId || !rooms[roomId]) return;
+    
+    if (roomId === 'solo') return;
 
     const room = rooms[roomId];
+    const disconnectKey = socket.data.userKey;
     const username = socket.data.username || 'Пользователь';
-    const disconnectUserKey = socket.data.userKey;
 
     room.users = room.users.filter(user => user.id !== socket.id);
 
+    // Логика смены хоста после ухода
     assignHostIfNeeded(room);
 
-    const newHostUser = room.users.find(user => user.userKey === room.hostUserKey);
-
-    if (newHostUser && newHostUser.id) {
-      io.to(newHostUser.id).emit('you-are-host');
-    }
-
-    if (room.users.length > 0) {
-      if (room.creatorUserKey === disconnectUserKey) {
-        io.to(roomId).emit('system-message', {
-          text: `${username} вышел. Хост передан другому участнику`
-        });
-      } else {
-        io.to(roomId).emit('system-message', {
-          text: `${username} покинул комнату`
-        });
+    // Если сменился хост, сообщаем новому
+    if (room.users.length > 0 && room.hostSocketId && room.hostSocketId !== socket.id) {
+      io.to(room.hostSocketId).emit('you-are-host');
+      // Сообщаем всем про переход, но аккуратно
+      if (room.creatorUserKey === disconnectKey && room.hostUserKey !== disconnectKey) {
+         io.to(roomId).emit('system-message', { text: `${username} вышел, хост передан` });
       }
     }
 
