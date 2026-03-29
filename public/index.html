@@ -3,24 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AniWatch Together</title>
+  <title>AniWatch — совместный просмотр аниме</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <main class="main-page">
+  <div class="main-page">
     <section class="main-hero">
       <div class="main-card">
-        <h1 class="main-title">🎌 AniWatch Together</h1>
-        <p class="main-subtitle">Смотри аниме один или вместе с друзьями</p>
+        <div class="main-card-badge">🎌 AniWatch</div>
+
+        <h1 class="main-title">Смотри аниме вместе с друзьями</h1>
+        <p class="main-subtitle">
+          Создавай комнату, зови друзей по ссылке и смотри аниме синхронно.
+          Или включай одиночный режим и смотри сам.
+        </p>
 
         <div class="main-form">
           <div class="form-group">
-            <label for="username">Ваше имя</label>
+            <label for="username">Ваш ник</label>
             <input
               type="text"
               id="username"
               placeholder="Введите имя"
-              maxlength="20"
+              maxlength="30"
+              autocomplete="nickname"
             />
           </div>
 
@@ -29,19 +35,55 @@
             <input
               type="text"
               id="roomId"
-              placeholder="Введите ID комнаты"
+              placeholder="Например: room-ab12cd"
+              maxlength="50"
+              autocomplete="off"
             />
           </div>
 
           <div class="main-actions">
-            <button id="joinRoomBtn" class="btn btn-primary">Войти в комнату</button>
-            <button id="createRoomBtn" class="btn btn-secondary">Создать комнату</button>
-            <button id="soloWatchBtn" class="btn btn-outline">Смотреть одному</button>
+            <button id="createRoomBtn" class="btn btn-primary" type="button">
+              Создать комнату
+            </button>
+
+            <button id="joinRoomBtn" class="btn btn-secondary" type="button">
+              Войти в комнату
+            </button>
+
+            <button id="soloWatchBtn" class="btn btn-outline" type="button">
+              Одиночный просмотр
+            </button>
+          </div>
+        </div>
+
+        <div class="home-info-grid">
+          <div class="home-info-card">
+            <div class="home-info-icon">👥</div>
+            <div>
+              <h3>Совместный просмотр</h3>
+              <p>Заходите в одну комнату и смотрите одну серию вместе.</p>
+            </div>
+          </div>
+
+          <div class="home-info-card">
+            <div class="home-info-icon">🔗</div>
+            <div>
+              <h3>Удобное приглашение</h3>
+              <p>Просто отправь ссылку комнаты другу и он подключится.</p>
+            </div>
+          </div>
+
+          <div class="home-info-card">
+            <div class="home-info-icon">🎬</div>
+            <div>
+              <h3>Соло режим</h3>
+              <p>Если хочешь — смотри аниме в одиночном режиме без комнаты.</p>
+            </div>
           </div>
         </div>
       </div>
     </section>
-  </main>
+  </div>
 
   <script src="/main.js"></script>
 </body>
