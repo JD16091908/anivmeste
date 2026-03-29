@@ -308,7 +308,7 @@ input::placeholder {
 .room-main {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   padding: 20px;
   background: #222;
 }
@@ -571,6 +571,7 @@ input::placeholder {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-bottom: 6px;
 }
 
 .episode-tile {
@@ -610,16 +611,20 @@ input::placeholder {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 4px;
+  margin-bottom: 14px;
 }
 
 .player-shell {
   padding: 0;
+  margin-top: 2px;
 }
 
 .player-wrapper {
   width: 100%;
-  min-height: 520px;
-  height: calc(100vh - 510px);
+  min-height: 680px;
+  height: calc(100vh - 340px);
+  max-height: 82vh;
   position: relative;
   overflow: hidden;
   border-radius: 18px;
@@ -838,6 +843,12 @@ input::placeholder {
   grid-template-columns: 1fr;
 }
 
+.cinema-mode .player-wrapper {
+  height: calc(100vh - 220px);
+  max-height: none;
+  min-height: 520px;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -878,8 +889,9 @@ input::placeholder {
   }
 
   .player-wrapper {
-    height: 60vh;
-    min-height: 320px;
+    height: 62vh;
+    min-height: 380px;
+    max-height: none;
   }
 }
 
@@ -940,6 +952,7 @@ input::placeholder {
 
   .room-main {
     padding: 12px;
+    gap: 14px;
   }
 
   .anime-search-section,
@@ -959,5 +972,10 @@ input::placeholder {
 
   .selected-anime-title {
     font-size: 22px;
+  }
+
+  .player-wrapper {
+    min-height: 300px;
+    height: 50vh;
   }
 }
