@@ -5,7 +5,7 @@ const dns = require('dns').promises;
 const { Server } = require('socket.io');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 const server = http.createServer(app);
 const io = new Server(server);
@@ -114,14 +114,6 @@ function getKodikId(item) {
   return item?.id || null;
 }
 
-function getKinopoiskId(item) {
-  return item?.kinopoisk_id || item?.material_data?.kinopoisk_id || null;
-}
-
-function getImdbId(item) {
-  return item?.imdb_id || item?.material_data?.imdb_id || null;
-}
-
 function getStableAnimeId(item) {
   const shikimoriId = getShikimoriId(item);
   const kodikId = getKodikId(item);
@@ -131,31 +123,11 @@ function getStableAnimeId(item) {
   return null;
 }
 
-function makeAnimeKey(item) {
-  const shikimoriId = getShikimoriId(item);
-  if (shikimoriId) return `shikimori:${shikimoriId}`;
-
-  const kodikId = getKodikId(item);
-  if (kodikId) return `kodik:${kodikId}`;
-
-  const kinopoiskId = getKinopoiskId(item);
-  if (kinopoiskId) return `kinopoisk:${kinopoiskId}`;
-
-  const imdbId = getImdbId(item);
-  if (imdbId) return `imdb:${imdbId}`;
-
-  const title = normalizeTitle(item);
-  const year = normalizeYear(item);
-  if (title) return `title:${title}${year ? `::${year}` : ''}`;
-
-  return `title:unknown::${Date.now()}`;
-}
-
 function normalizeSearchText(value) {
   return String(value || '')
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -165,7 +137,7 @@ function isAllowedAnimeType(item) {
   return type === 'anime' || type === 'anime-serial' || type.includes('anime');
 }
 
-function scoreSearchItem(item, query) {
+function titleScore(item, query) {
   const q = normalizeSearchText(query);
   const title = normalizeSearchText(normalizeTitle(item));
 
@@ -174,74 +146,58 @@ function scoreSearchItem(item, query) {
 
   let score = 0;
 
-  if (title === q) score += 5000;
-  else if (title.startsWith(q)) score += 2500;
-  else if (title.includes(q)) score += 1200;
+  if (title === q) score += 10000;
+  else if (title.startsWith(q)) score += 5000;
+  else if (title.includes(q)) score += 2500;
 
   const words = q.split(' ').filter(Boolean);
   for (const word of words) {
-    if (title.startsWith(word)) score += 250;
-    else if (title.includes(word)) score += 120;
+    if (word.length < 2) continue;
+    if (title === word) score += 1500;
+    else if (title.startsWith(word)) score += 400;
+    else if (title.includes(word)) score += 150;
   }
 
-  const queryYear = q.match(/\b(19|20)\d{2}\b/)?.[0];
-  const itemYear = String(normalizeYear(item) || '');
-  if (queryYear && queryYear === itemYear) score += 600;
-
-  if (getShikimoriId(item)) score += 100;
-  if (item?.translation?.title) score += 20;
+  const qYear = q.match(/\b(19|20)\d{2}\b/)?.[0];
+  const y = String(normalizeYear(item) || '');
+  if (qYear && y === qYear) score += 1000;
 
   return score;
 }
 
-function mapSearchResults(results, query = '') {
-  const grouped = new Map();
+function makeSearchItem(item, query) {
+  return {
+    animeId: getStableAnimeId(item) || `kodik:${getKodikId(item) || 'unknown'}`,
+    animeUrl: String(getStableAnimeId(item) || `kodik:${getKodikId(item) || 'unknown'}`),
+    title: normalizeTitle(item),
+    year: normalizeYear(item),
+    description: normalizeDescription(item),
+    poster: normalizePoster(item),
+    status: normalizeStatus(item),
+    type: normalizeType(item),
+    shikimoriId: getShikimoriId(item),
+    kodikId: getKodikId(item),
+    score: titleScore(item, query)
+  };
+}
 
-  for (const item of results || []) {
-    if (!isAllowedAnimeType(item)) continue;
+function dedupeSearchResults(items) {
+  const map = new Map();
 
-    const animeId = getStableAnimeId(item) || makeAnimeKey(item);
-    if (!animeId) continue;
+  for (const item of items) {
+    const key = [
+      item.shikimoriId || '',
+      item.kodikId || '',
+      normalizeSearchText(item.title),
+      item.year || ''
+    ].join('|');
 
-    const score = scoreSearchItem(item, query);
-    if (score <= 0) continue;
-
-    if (!grouped.has(animeId)) {
-      grouped.set(animeId, {
-        animeId,
-        animeUrl: animeId,
-        title: normalizeTitle(item),
-        year: normalizeYear(item),
-        description: normalizeDescription(item),
-        poster: normalizePoster(item),
-        status: normalizeStatus(item),
-        type: normalizeType(item),
-        _score: score
-      });
-    } else {
-      const existing = grouped.get(animeId);
-      if (score > existing._score) {
-        grouped.set(animeId, {
-          animeId,
-          animeUrl: animeId,
-          title: normalizeTitle(item),
-          year: normalizeYear(item),
-          description: normalizeDescription(item),
-          poster: normalizePoster(item),
-          status: normalizeStatus(item),
-          type: normalizeType(item),
-          _score: score
-        });
-      }
+    if (!map.has(key) || map.get(key).score < item.score) {
+      map.set(key, item);
     }
   }
 
-  return [...grouped.values()]
-    .sort((a, b) => {
-      if (b._score !== a._score) return b._score - a._score;
-      return String(a.title).localeCompare(String(b.title), 'ru');
-    })
-    .map(({ _score, ...item }) => item);
+  return [...map.values()];
 }
 
 function buildEpisodeIframe(link) {
@@ -249,51 +205,49 @@ function buildEpisodeIframe(link) {
   return String(link).startsWith('//') ? `https:${link}` : link;
 }
 
-function extractEpisodesFromEpisodesObject(item) {
+function extractEpisodesFromItem(item) {
   const episodes = [];
-  const episodesObj = item?.episodes;
 
-  if (!episodesObj || typeof episodesObj !== 'object') return episodes;
-
-  for (const [episodeNumber, link] of Object.entries(episodesObj)) {
-    const iframeUrl = buildEpisodeIframe(
-      typeof link === 'string' ? link : link?.link || link?.url || null
-    );
-    if (!iframeUrl) continue;
-
-    episodes.push({
-      videoId: `${item?.id || 'anime'}-${episodeNumber}-${item?.translation?.id || 't'}`,
-      number: Number(episodeNumber) || 0,
-      season: Number(item?.season) || Number(item?.material_data?.season) || 1,
-      index: Number(episodeNumber) || 0,
-      iframeUrl,
-      dubbing: item?.translation?.title || item?.translation?.name || '',
-      player: item?.translation?.title || item?.translation?.name || 'kodik',
-      playerId: item?.translation?.id || null,
-      translationId: item?.translation?.id || null,
-      translationTitle: item?.translation?.title || item?.translation?.name || '',
-      views: 0,
-      duration: 0
-    });
-  }
-
-  return episodes;
-}
-
-function extractEpisodesFromSeasons(item) {
-  const episodes = [];
-  const seasons = item?.seasons || {};
-
-  for (const [seasonNumber, seasonData] of Object.entries(seasons)) {
-    if (!seasonData || typeof seasonData !== 'object') continue;
-
-    const episodesObj = seasonData?.episodes || seasonData;
-    if (!episodesObj || typeof episodesObj !== 'object') continue;
-
-    for (const [episodeNumber, link] of Object.entries(episodesObj)) {
+  const directEpisodes = item?.episodes;
+  if (directEpisodes && typeof directEpisodes === 'object') {
+    for (const [episodeNumber, link] of Object.entries(directEpisodes)) {
       const iframeUrl = buildEpisodeIframe(
         typeof link === 'string' ? link : link?.link || link?.url || null
       );
+
+      if (!iframeUrl) continue;
+
+      episodes.push({
+        videoId: `${item?.id || 'anime'}-${episodeNumber}-${item?.translation?.id || 't'}`,
+        number: Number(episodeNumber) || 0,
+        season: Number(item?.season) || Number(item?.material_data?.season) || 1,
+        index: Number(episodeNumber) || 0,
+        iframeUrl,
+        dubbing: item?.translation?.title || item?.translation?.name || '',
+        player: item?.translation?.title || item?.translation?.name || 'kodik',
+        playerId: item?.translation?.id || null,
+        translationId: item?.translation?.id || null,
+        translationTitle: item?.translation?.title || item?.translation?.name || '',
+        views: 0,
+        duration: 0
+      });
+    }
+  }
+
+  if (episodes.length > 0) return episodes;
+
+  const seasons = item?.seasons || {};
+  for (const [seasonNumber, seasonData] of Object.entries(seasons)) {
+    if (!seasonData || typeof seasonData !== 'object') continue;
+
+    const seasonEpisodes = seasonData?.episodes || seasonData;
+    if (!seasonEpisodes || typeof seasonEpisodes !== 'object') continue;
+
+    for (const [episodeNumber, link] of Object.entries(seasonEpisodes)) {
+      const iframeUrl = buildEpisodeIframe(
+        typeof link === 'string' ? link : link?.link || link?.url || null
+      );
+
       if (!iframeUrl) continue;
 
       episodes.push({
@@ -313,17 +267,8 @@ function extractEpisodesFromSeasons(item) {
     }
   }
 
-  return episodes;
-}
+  if (episodes.length > 0) return episodes;
 
-function extractEpisodesFromItem(item) {
-  const fromEpisodes = extractEpisodesFromEpisodesObject(item);
-  if (fromEpisodes.length > 0) return fromEpisodes;
-
-  const fromSeasons = extractEpisodesFromSeasons(item);
-  if (fromSeasons.length > 0) return fromSeasons;
-
-  const episodes = [];
   const link = buildEpisodeIframe(item?.link);
   const episodeNumber =
     Number(item?.episode) ||
@@ -360,7 +305,7 @@ function mergeEpisodes(items) {
     const episodes = extractEpisodesFromItem(item);
 
     for (const episode of episodes) {
-      const key = `${episode.season || 1}:${episode.number || 0}:${episode.translationId || episode.translationTitle || ''}`;
+      const key = `${episode.season}:${episode.number}:${episode.translationId || episode.translationTitle || ''}`;
       if (!episodeMap.has(key)) {
         episodeMap.set(key, episode);
       }
@@ -373,115 +318,120 @@ function mergeEpisodes(items) {
   });
 }
 
-function filterAnimeResults(results) {
-  return (results || []).filter(item => String(normalizeType(item) || '').toLowerCase().includes('anime'));
+function strictMatchResults(items, selected) {
+  const selectedTitle = normalizeSearchText(selected?.title);
+  const selectedYear = String(selected?.year || '');
+  const selectedShikimori = String(selected?.shikimoriId || '');
+  const selectedKodik = String(selected?.kodikId || '');
+
+  let filtered = items.filter(item => {
+    if (!isAllowedAnimeType(item)) return false;
+
+    const itemTitle = normalizeSearchText(normalizeTitle(item));
+    const itemYear = String(normalizeYear(item) || '');
+    const itemShikimori = String(getShikimoriId(item) || '');
+    const itemKodik = String(getKodikId(item) || '');
+
+    const idMatch =
+      (selectedShikimori && itemShikimori === selectedShikimori) ||
+      (selectedKodik && itemKodik === selectedKodik);
+
+    const titleMatch =
+      selectedTitle &&
+      (
+        itemTitle === selectedTitle ||
+        itemTitle.includes(selectedTitle) ||
+        selectedTitle.includes(itemTitle)
+      );
+
+    const yearMatch = !selectedYear || itemYear === selectedYear;
+
+    return (idMatch || titleMatch) && yearMatch;
+  });
+
+  if (filtered.length > 0) return filtered;
+
+  filtered = items.filter(item => {
+    const itemTitle = normalizeSearchText(normalizeTitle(item));
+    return selectedTitle && (
+      itemTitle === selectedTitle ||
+      itemTitle.includes(selectedTitle) ||
+      selectedTitle.includes(itemTitle)
+    );
+  });
+
+  return filtered;
 }
 
-function dedupeResults(items) {
-  const map = new Map();
-
-  for (const item of items || []) {
-    const key = [
-      getKodikId(item) || '',
-      getShikimoriId(item) || '',
-      item?.translation?.id || '',
-      normalizeTitle(item),
-      normalizeYear(item),
-      item?.episode || item?.last_episode || ''
-    ].join('|');
-
-    if (!map.has(key)) {
-      map.set(key, item);
-    }
-  }
-
-  return [...map.values()];
-}
-
-async function fetchAnimeByKey(animeKey) {
-  const colonIndex = animeKey.indexOf(':');
-  const kind = colonIndex > -1 ? animeKey.slice(0, colonIndex) : '';
-  const value = colonIndex > -1 ? animeKey.slice(colonIndex + 1) : animeKey;
-
-  if (kind === 'shikimori') {
-    const bySearch = await kodikGet('/search', {
-      shikimori_id: value,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const byList = await kodikGet('/list', {
-      shikimori_id: value,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    return filterAnimeResults([
-      ...(Array.isArray(bySearch?.results) ? bySearch.results : []),
-      ...(Array.isArray(byList?.results) ? byList.results : [])
+async function fetchAnimeBySelection(selected) {
+  if (selected?.shikimoriId) {
+    const [searchData, listData] = await Promise.all([
+      kodikGet('/search', {
+        shikimori_id: selected.shikimoriId,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      }),
+      kodikGet('/list', {
+        shikimori_id: selected.shikimoriId,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      })
     ]);
-  }
 
-  if (kind === 'kodik') {
-    const bySearch = await kodikGet('/search', {
-      id: value,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const byList = await kodikGet('/list', {
-      id: value,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    let combined = [
-      ...(Array.isArray(bySearch?.results) ? bySearch.results : []),
-      ...(Array.isArray(byList?.results) ? byList.results : [])
+    return [
+      ...(Array.isArray(searchData?.results) ? searchData.results : []),
+      ...(Array.isArray(listData?.results) ? listData.results : [])
     ];
-
-    return filterAnimeResults(combined);
   }
 
-  const params = {
-    with_material_data: 'true',
-    with_episodes: 'true'
-  };
+  if (selected?.kodikId) {
+    const [searchData, listData] = await Promise.all([
+      kodikGet('/search', {
+        id: selected.kodikId,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      }),
+      kodikGet('/list', {
+        id: selected.kodikId,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      })
+    ]);
 
-  if (kind === 'kinopoisk') {
-    params.kinopoisk_id = value;
-  } else if (kind === 'imdb') {
-    params.imdb_id = value;
-  } else if (kind === 'title') {
-    const [titlePart, yearPart] = value.split('::');
-    params.title = titlePart || '';
-    if (yearPart) params.year = yearPart;
-  } else {
-    params.title = animeKey;
+    return [
+      ...(Array.isArray(searchData?.results) ? searchData.results : []),
+      ...(Array.isArray(listData?.results) ? listData.results : [])
+    ];
   }
 
-  const searchData = await kodikGet('/search', {
-    ...params,
-    types: 'anime-serial,anime'
-  });
+  if (selected?.title) {
+    const [searchData, listData] = await Promise.all([
+      kodikGet('/search', {
+        title: selected.title,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      }),
+      kodikGet('/list', {
+        title: selected.title,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        year: selected.year || undefined,
+        types: 'anime-serial,anime'
+      })
+    ]);
 
-  const listData = await kodikGet('/list', {
-    ...params,
-    with_material_data: 'true',
-    with_episodes: 'true',
-    types: 'anime-serial,anime'
-  });
+    return [
+      ...(Array.isArray(searchData?.results) ? searchData.results : []),
+      ...(Array.isArray(listData?.results) ? listData.results : [])
+    ];
+  }
 
-  let results = [
-    ...(Array.isArray(searchData?.results) ? searchData.results : []),
-    ...(Array.isArray(listData?.results) ? listData.results : [])
-  ];
-
-  return filterAnimeResults(results);
+  return [];
 }
 
 app.get('/api/health/kodik', async (req, res) => {
@@ -509,64 +459,65 @@ app.get('/api/yummy/search', async (req, res) => {
       return res.status(400).json({ error: 'Введите минимум 2 символа для поиска' });
     }
 
-    const searchData = await kodikGet('/search', {
-      title: query,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const listData = await kodikGet('/list', {
-      title: query,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const results = dedupeResults([
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
+    const [searchData, listData] = await Promise.all([
+      kodikGet('/search', {
+        title: query,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      }),
+      kodikGet('/list', {
+        title: query,
+        with_material_data: 'true',
+        with_episodes: 'true',
+        types: 'anime-serial,anime'
+      })
     ]);
 
-    res.json(mapSearchResults(results, query));
+    const rawResults = [
+      ...(Array.isArray(searchData?.results) ? searchData.results : []),
+      ...(Array.isArray(listData?.results) ? listData.results : [])
+    ];
+
+    const mapped = rawResults
+      .filter(isAllowedAnimeType)
+      .map(item => makeSearchItem(item, query))
+      .filter(item => item.score >= 1200);
+
+    const finalResults = dedupeSearchResults(mapped)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(({ score, ...item }) => item);
+
+    res.json(finalResults);
   } catch (error) {
     console.error('SEARCH ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось выполнить поиск', details: error.message });
   }
 });
 
-app.get('/api/yummy/anime/:animeUrl', async (req, res) => {
+app.post('/api/yummy/anime/by-selection', async (req, res) => {
   try {
     if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
 
-    const animeUrl = decodeURIComponent(req.params.animeUrl);
-    let results = await fetchAnimeByKey(animeUrl);
-    results = dedupeResults(results);
+    const selected = req.body || {};
+    if (!selected?.title && !selected?.shikimoriId && !selected?.kodikId) {
+      return res.status(400).json({ error: 'Недостаточно данных для выбора аниме' });
+    }
+
+    let results = await fetchAnimeBySelection(selected);
+    results = strictMatchResults(results, selected);
 
     if (!results.length) {
-      return res.status(404).json({ error: 'Аниме не найдено' });
+      return res.status(404).json({ error: 'Не удалось точно определить выбранное аниме' });
     }
 
-    const colonIndex = animeUrl.indexOf(':');
-    const kind = colonIndex > -1 ? animeUrl.slice(0, colonIndex) : '';
-    const value = colonIndex > -1 ? animeUrl.slice(colonIndex + 1) : animeUrl;
-
-    let first;
-
-    if (kind === 'shikimori' || kind === 'kodik') {
-      first = results.find(r => {
-        if (kind === 'shikimori') return String(getShikimoriId(r)) === value;
-        if (kind === 'kodik') return String(getKodikId(r)) === value;
-        return false;
-      }) || results[0];
-    } else {
-      first = results[0];
-    }
-
-    const animeId = getStableAnimeId(first) || makeAnimeKey(first);
+    const exactTitle = normalizeSearchText(selected.title);
+    const first = results.find(item => normalizeSearchText(normalizeTitle(item)) === exactTitle) || results[0];
+    const animeId = getStableAnimeId(first) || `kodik:${getKodikId(first) || 'unknown'}`;
     const videos = mergeEpisodes(results);
 
-    console.log(`[Anime Load] ${normalizeTitle(first)} | Results: ${results.length} | Videos: ${videos.length}`);
+    console.log(`[Anime Selection] ${selected.title} | matched: ${normalizeTitle(first)} | results: ${results.length} | videos: ${videos.length}`);
 
     res.json({
       animeId,
@@ -581,7 +532,7 @@ app.get('/api/yummy/anime/:animeUrl', async (req, res) => {
       videos
     });
   } catch (error) {
-    console.error('ANIME ERROR:', error.message);
+    console.error('ANIME BY SELECTION ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось загрузить аниме', details: error.message });
   }
 });

@@ -130,7 +130,7 @@ function getUniquePlayers(videos) {
       map.get(name).count += 1;
     }
   }
-  return [...map.values()];
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }
 
 function getVideosBySelectedPlayer(videos) {
@@ -545,12 +545,12 @@ function renderAnimeResults(items) {
       const visibleNow = showAllSearchResults ? lastSearchResults : lastSearchResults.slice(0, 5);
       const index = Number(btn.dataset.index);
       const item = visibleNow[index];
-      if (!item?.animeUrl) return;
+      if (!item) return;
 
       animeList.classList.remove('visible');
       animeList.innerHTML = '';
 
-      await selectAnime(item.animeUrl);
+      await selectAnime(item);
     });
   });
 
@@ -696,15 +696,33 @@ async function searchAnime(query) {
   }
 }
 
-async function selectAnime(animeUrl) {
-  if (!animeUrl || !canControl()) return;
+async function selectAnime(itemOrAnimeUrl) {
+  const selectedItem = typeof itemOrAnimeUrl === 'object' && itemOrAnimeUrl
+    ? itemOrAnimeUrl
+    : lastSearchResults.find(item => item.animeUrl === itemOrAnimeUrl);
+
+  if (!selectedItem || !canControl()) return;
 
   if (selectedAnimeInfo) selectedAnimeInfo.innerHTML = 'Загрузка...';
   if (playerList) playerList.innerHTML = `<div class="empty-state">Загрузка плееров...</div>`;
   if (episodesList) episodesList.innerHTML = `<div class="empty-state">Сначала выберите плеер</div>`;
 
   try {
-    const response = await fetch(`/api/yummy/anime/${encodeURIComponent(animeUrl)}`);
+    const response = await fetch('/api/yummy/anime/by-selection', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        animeUrl: selectedItem.animeUrl,
+        animeId: selectedItem.animeId,
+        title: selectedItem.title,
+        year: selectedItem.year,
+        shikimoriId: selectedItem.shikimoriId,
+        kodikId: selectedItem.kodikId
+      })
+    });
+
     const data = await response.json();
 
     if (!response.ok) throw new Error(data?.error || 'Не удалось загрузить аниме');
@@ -736,7 +754,7 @@ window.addEventListener('keydown', () => {
 });
 
 document.addEventListener('click', (event) => {
-  const withinSearch = event.target.closest('.anime-search-section');
+  const withinSearch = event.target.closest('.anime-search-section, .center-search-panel');
   if (!withinSearch) {
     animeList?.classList.remove('visible');
   }
