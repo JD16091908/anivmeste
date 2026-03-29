@@ -516,11 +516,11 @@ function renderAnimeResults(items) {
   const needToggle = items.length > 5;
 
   animeList.innerHTML = `
-    ${visibleItems.map(item => `
+    ${visibleItems.map((item, index) => `
       <button
         type="button"
         class="search-result-item ${item.animeUrl === selectedAnime?.animeUrl ? 'active' : ''}"
-        data-anime-url="${escapeHtml(item.animeUrl)}"
+        data-index="${index}"
       >
         ${item.poster ? `<img class="search-result-poster" src="${escapeHtml(item.poster)}" loading="lazy">` : '<div class="search-result-poster search-result-poster-empty"></div>'}
         <div class="search-result-content">
@@ -542,12 +542,15 @@ function renderAnimeResults(items) {
   animeList.querySelectorAll('.search-result-item').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', async () => {
-      const animeUrl = btn.dataset.animeUrl;
-      if (!animeUrl) return;
+      const visibleNow = showAllSearchResults ? lastSearchResults : lastSearchResults.slice(0, 5);
+      const index = Number(btn.dataset.index);
+      const item = visibleNow[index];
+      if (!item?.animeUrl) return;
 
       animeList.classList.remove('visible');
       animeList.innerHTML = '';
-      await selectAnime(animeUrl);
+
+      await selectAnime(item.animeUrl);
     });
   });
 
@@ -662,6 +665,11 @@ async function searchAnime(query) {
   showAllSearchResults = false;
   latestSearchToken += 1;
   const token = latestSearchToken;
+
+  if (animeList) {
+    animeList.innerHTML = '';
+    animeList.classList.remove('visible');
+  }
 
   try {
     const response = await fetch(`/api/yummy/search?q=${encodeURIComponent(rawQuery)}`);
