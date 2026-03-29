@@ -4,11 +4,9 @@
 
 :root {
   --bg: #0b1020;
-  --bg-soft: #111933;
   --panel: #131d34;
-  --panel-2: #1a2540;
-  --card: #243250;
-  --card-hover: #314267;
+  --panel-dark: #2d2d2d;
+  --panel-dark-2: #353535;
   --input: #2a3758;
   --text: #ffffff;
   --muted: #aebad6;
@@ -19,9 +17,6 @@
   --danger: #ff8c2b;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   --accent: #ff626b;
-  --accent-2: #ff7a81;
-  --panel-dark: #2d2d2d;
-  --panel-dark-2: #353535;
   --chip: #202020;
   --chip-hover: #2b2b2b;
   --green: #49d17d;
@@ -57,6 +52,8 @@ input {
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+/* ===== Главная ===== */
 
 .main-page {
   width: 100%;
@@ -193,7 +190,6 @@ input::placeholder {
 .home-info-card h3 {
   margin: 0 0 6px;
   font-size: 16px;
-  color: #fff;
 }
 
 .home-info-card p {
@@ -244,6 +240,8 @@ input::placeholder {
   background: #324465;
   color: #fff;
 }
+
+/* ===== Комната ===== */
 
 .room-page {
   min-height: 100vh;
@@ -322,7 +320,8 @@ input::placeholder {
 
 .anime-search-section,
 .anime-selected-section,
-.anime-controls-section {
+.anime-controls-section,
+.player-panel {
   position: relative;
   padding: 18px;
   border-radius: 18px;
@@ -476,7 +475,6 @@ input::placeholder {
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.02em;
   transition: 0.2s ease;
 }
 
@@ -570,16 +568,16 @@ input::placeholder {
 .episodes-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .episode-tile {
-  min-width: 48px;
+  min-width: 44px;
   height: 42px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--chip);
   color: #fff;
   cursor: pointer;
@@ -601,35 +599,33 @@ input::placeholder {
   cursor: not-allowed;
 }
 
+.player-panel {
+  padding-top: 16px;
+}
+
 .now-playing-bar {
-  padding: 16px 20px;
-  font-size: 18px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 700;
   color: #fff;
-  border-radius: 16px;
-  background: var(--panel-dark);
+  border-radius: 12px;
+  background: #343434;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-top: 14px;
-  margin-bottom: 18px;
 }
 
 .player-shell {
-  padding: 0;
-  margin-top: 0;
   width: 100%;
+  padding: 0;
 }
 
 .player-wrapper {
-  width: min(100%, 1280px);
+  width: min(100%, 1040px);
+  aspect-ratio: 16 / 9;
   margin: 0 auto;
-  min-height: 760px;
-  height: calc(100vh - 260px);
-  max-height: 88vh;
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #000;
 }
 
@@ -639,7 +635,7 @@ input::placeholder {
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #000;
   display: block;
 }
@@ -649,7 +645,7 @@ input::placeholder {
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #05070d;
   display: flex;
   align-items: center;
@@ -846,10 +842,7 @@ input::placeholder {
 }
 
 .cinema-mode .player-wrapper {
-  width: min(100%, 1380px);
-  height: calc(100vh - 170px);
-  max-height: none;
-  min-height: 620px;
+  width: min(100%, 1280px);
 }
 
 ::-webkit-scrollbar {
@@ -893,9 +886,6 @@ input::placeholder {
 
   .player-wrapper {
     width: 100%;
-    height: 68vh;
-    min-height: 420px;
-    max-height: none;
   }
 }
 
@@ -961,7 +951,8 @@ input::placeholder {
 
   .anime-search-section,
   .anime-selected-section,
-  .anime-controls-section {
+  .anime-controls-section,
+  .player-panel {
     padding: 14px;
   }
 
@@ -978,9 +969,13 @@ input::placeholder {
     font-size: 22px;
   }
 
+  .episode-tile {
+    min-width: 40px;
+    height: 38px;
+    padding: 0 10px;
+  }
+
   .player-wrapper {
-    width: 100%;
-    min-height: 320px;
-    height: 52vh;
+    aspect-ratio: 16 / 9;
   }
 }
