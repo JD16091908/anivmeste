@@ -22,6 +22,7 @@ let selectedAnime = null;
 let selectedPlayer = null;
 let searchDebounce = null;
 let lastSearchResults = [];
+let showAllSearchResults = false;
 let pendingPlaybackApply = null;
 let isRemoteAction = false;
 let userInteractedWithPlayer = false;
@@ -510,29 +511,49 @@ function renderAnimeResults(items) {
     return;
   }
 
-  animeList.innerHTML = items.map(item => `
-    <button
-      type="button"
-      class="search-result-item ${item.animeUrl === selectedAnime?.animeUrl ? 'active' : ''}"
-      data-anime-url="${escapeHtml(item.animeUrl)}"
-    >
-      ${item.poster ? `<img class="search-result-poster" src="${escapeHtml(item.poster)}" loading="lazy">` : '<div class="search-result-poster search-result-poster-empty"></div>'}
-      <div class="search-result-content">
-        <div class="search-result-title">${escapeHtml(item.title)}</div>
-        <div class="search-result-meta">${escapeHtml(item.year || '')}${item.type ? ` • ${escapeHtml(item.type)}` : ''}</div>
-      </div>
-    </button>
-  `).join('');
+  const visibleItems = showAllSearchResults ? items : items.slice(0, 5);
+  const needToggle = items.length > 5;
+
+  animeList.innerHTML = `
+    ${visibleItems.map(item => `
+      <button
+        type="button"
+        class="search-result-item ${item.animeUrl === selectedAnime?.animeUrl ? 'active' : ''}"
+        data-anime-url="${escapeHtml(item.animeUrl)}"
+      >
+        ${item.poster ? `<img class="search-result-poster" src="${escapeHtml(item.poster)}" loading="lazy">` : '<div class="search-result-poster search-result-poster-empty"></div>'}
+        <div class="search-result-content">
+          <div class="search-result-title">${escapeHtml(item.title)}</div>
+          <div class="search-result-meta">${escapeHtml(item.year || '')}${item.type ? ` • ${escapeHtml(item.type)}` : ''}</div>
+        </div>
+      </button>
+    `).join('')}
+
+    ${needToggle ? `
+      <button type="button" class="search-results-toggle" id="searchResultsToggleBtn">
+        ${showAllSearchResults ? 'СВЕРНУТЬ РЕЗУЛЬТАТЫ' : 'ОТКРЫТЬ ВСЕ РЕЗУЛЬТАТЫ'}
+      </button>
+    ` : ''}
+  `;
 
   animeList.classList.add('visible');
 
-  animeList.querySelectorAll('button').forEach(btn => {
+  animeList.querySelectorAll('.search-result-item').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', async () => {
       await selectAnime(btn.dataset.animeUrl);
       animeList.classList.remove('visible');
     });
   });
+
+  const toggleBtn = document.getElementById('searchResultsToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.disabled = !canControl();
+    toggleBtn.addEventListener('click', () => {
+      showAllSearchResults = !showAllSearchResults;
+      renderAnimeResults(lastSearchResults);
+    });
+  }
 }
 
 function renderPlayers(videos) {
@@ -631,6 +652,7 @@ async function searchAnime(query) {
   if (!canControl()) return;
 
   if (searchStatus) searchStatus.textContent = 'Поиск...';
+  showAllSearchResults = false;
 
   try {
     const response = await fetch(`/api/yummy/search?q=${encodeURIComponent(query.trim())}`);
@@ -638,7 +660,7 @@ async function searchAnime(query) {
 
     if (!response.ok) throw new Error(data?.error || 'Ошибка поиска');
 
-    lastSearchResults = Array.isArray(data) ? data.slice(0, 8) : [];
+    lastSearchResults = Array.isArray(data) ? data : [];
     renderAnimeResults(lastSearchResults);
 
     if (searchStatus) {
@@ -696,7 +718,7 @@ window.addEventListener('keydown', () => {
 });
 
 document.addEventListener('click', (event) => {
-  const withinSearch = event.target.closest('.center-search-panel');
+  const withinSearch = event.target.closest('.anime-search-section');
   if (!withinSearch) {
     animeList?.classList.remove('visible');
   }

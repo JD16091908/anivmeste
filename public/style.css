@@ -58,8 +58,6 @@ input {
   pointer-events: none !important;
 }
 
-/* ===== Main page ===== */
-
 .main-page {
   width: 100%;
 }
@@ -247,8 +245,6 @@ input::placeholder {
   color: #fff;
 }
 
-/* ===== Room ===== */
-
 .room-page {
   min-height: 100vh;
   background: #0b1020;
@@ -406,7 +402,7 @@ input::placeholder {
   background: var(--panel-dark-2);
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
 }
 
@@ -468,6 +464,24 @@ input::placeholder {
   font-size: 10px;
   color: #a5a5a5;
   line-height: 1.1;
+}
+
+.search-results-toggle {
+  width: 100%;
+  border: none;
+  background: #3f3f3f;
+  color: #f3f3f3;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: 0.2s ease;
+}
+
+.search-results-toggle:hover {
+  background: #4a4a4a;
 }
 
 .selected-anime-card {
