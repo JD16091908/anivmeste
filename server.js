@@ -217,46 +217,111 @@ function buildEpisodeIframe(link) {
   return String(link).startsWith('//') ? `https:${link}` : link;
 }
 
-function extractEpisodesFromResults(items) {
-  const episodeMap = new Map();
+function getEpisodeNumberFromItem(item) {
+  return (
+    Number(item?.episode) ||
+    Number(item?.sort_episode) ||
+    Number(item?.material_data?.episode) ||
+    null
+  );
+}
 
-  for (const item of items || []) {
+function getLastEpisodeNumberFromItem(item) {
+  return (
+    Number(item?.last_episode) ||
+    Number(item?.material_data?.last_episode) ||
+    null
+  );
+}
+
+function buildEpisodesForTranslation(items) {
+  const directEpisodes = new Map();
+  let maxEpisode = 0;
+
+  for (const item of items) {
     const link = buildEpisodeIframe(item?.link);
-    if (!link) continue;
+    const ep = getEpisodeNumberFromItem(item);
+    const lastEp = getLastEpisodeNumberFromItem(item);
 
-    const episodeNumber =
-      Number(item?.episode) ||
-      Number(item?.sort_episode) ||
-      Number(item?.last_episode) ||
-      Number(item?.material_data?.episode) ||
-      Number(item?.material_data?.last_episode) ||
-      1;
+    if (lastEp && lastEp > maxEpisode) maxEpisode = lastEp;
+    if (ep && ep > maxEpisode) maxEpisode = ep;
 
-    const seasonNumber =
-      Number(item?.season) ||
-      Number(item?.material_data?.season) ||
-      1;
-
-    const translationId = item?.translation?.id || null;
-    const translationTitle = item?.translation?.title || item?.translation?.name || '';
-
-    const key = `${seasonNumber}:${episodeNumber}:${translationId || translationTitle}`;
-
-    if (!episodeMap.has(key)) {
-      episodeMap.set(key, {
-        videoId: `${seasonNumber}-${episodeNumber}-${translationId || 't'}`,
-        number: episodeNumber,
-        season: seasonNumber,
-        index: episodeNumber,
+    if (link && ep) {
+      directEpisodes.set(ep, {
+        videoId: `${item?.translation?.id || 't'}-${ep}`,
+        number: ep,
+        season: 1,
+        index: ep,
         iframeUrl: link,
-        dubbing: translationTitle,
-        player: translationTitle || 'kodik',
-        playerId: translationId,
-        translationId,
-        translationTitle,
+        dubbing: item?.translation?.title || item?.translation?.name || '',
+        player: item?.translation?.title || item?.translation?.name || 'kodik',
+        playerId: item?.translation?.id || null,
+        translationId: item?.translation?.id || null,
+        translationTitle: item?.translation?.title || item?.translation?.name || '',
         views: 0,
         duration: 0
       });
+    }
+  }
+
+  if (directEpisodes.size > 1) {
+    return [...directEpisodes.values()].sort((a, b) => a.number - b.number);
+  }
+
+  const representative = items.find(item => !!buildEpisodeIframe(item?.link));
+  const representativeLink = buildEpisodeIframe(representative?.link);
+
+  if (!representativeLink) return [];
+
+  if (maxEpisode <= 0) {
+    maxEpisode = 1;
+  }
+
+  const episodes = [];
+  for (let ep = 1; ep <= maxEpisode; ep++) {
+    episodes.push({
+      videoId: `${representative?.translation?.id || 't'}-${ep}`,
+      number: ep,
+      season: 1,
+      index: ep,
+      iframeUrl: representativeLink,
+      dubbing: representative?.translation?.title || representative?.translation?.name || '',
+      player: representative?.translation?.title || representative?.translation?.name || 'kodik',
+      playerId: representative?.translation?.id || null,
+      translationId: representative?.translation?.id || null,
+      translationTitle: representative?.translation?.title || representative?.translation?.name || '',
+      views: 0,
+      duration: 0
+    });
+  }
+
+  return episodes;
+}
+
+function extractEpisodesFromResults(items) {
+  const translationsMap = new Map();
+
+  for (const item of items || []) {
+    const translationId = item?.translation?.id || null;
+    const translationTitle = item?.translation?.title || item?.translation?.name || '';
+    const key = String(translationId || translationTitle || 'unknown');
+
+    if (!translationsMap.has(key)) {
+      translationsMap.set(key, []);
+    }
+    translationsMap.get(key).push(item);
+  }
+
+  const episodeMap = new Map();
+
+  for (const translationItems of translationsMap.values()) {
+    const episodes = buildEpisodesForTranslation(translationItems);
+
+    for (const episode of episodes) {
+      const key = `${episode.season}:${episode.number}:${episode.translationId || episode.translationTitle || ''}`;
+      if (!episodeMap.has(key)) {
+        episodeMap.set(key, episode);
+      }
     }
   }
 
@@ -264,32 +329,6 @@ function extractEpisodesFromResults(items) {
     if ((a.season || 1) !== (b.season || 1)) return (a.season || 1) - (b.season || 1);
     return (a.number || 0) - (b.number || 0);
   });
-}
-
-function debugLogAnimeResults(label, results) {
-  console.log(`\n========== DEBUG: ${label} ==========`);
-  console.log(`Всего результатов: ${results.length}`);
-
-  results.slice(0, 30).forEach((item, index) => {
-    console.log({
-      index,
-      id: item?.id,
-      title: normalizeTitle(item),
-      type: normalizeType(item),
-      year: normalizeYear(item),
-      shikimori_id: getShikimoriId(item),
-      episode: item?.episode,
-      sort_episode: item?.sort_episode,
-      last_episode: item?.last_episode,
-      season: item?.season,
-      translation_id: item?.translation?.id,
-      translation_title: item?.translation?.title || item?.translation?.name,
-      has_link: !!item?.link,
-      link_preview: String(item?.link || '').slice(0, 90)
-    });
-  });
-
-  console.log('=====================================\n');
 }
 
 async function fetchAnimeByStableId(animeId) {
@@ -340,6 +379,22 @@ async function fetchAnimeByStableId(animeId) {
   return [];
 }
 
+app.get('/api/health/kodik', async (req, res) => {
+  try {
+    const data = await kodikGet('/search', {
+      title: 'Naruto',
+      with_material_data: 'true'
+    });
+
+    res.json({
+      ok: true,
+      results: Array.isArray(data?.results) ? data.results.length : 0
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.get('/api/yummy/search', async (req, res) => {
   try {
     if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
@@ -356,14 +411,7 @@ app.get('/api/yummy/search', async (req, res) => {
     });
 
     const results = Array.isArray(data?.results) ? data.results : [];
-    const mapped = mapSearchResults(results, query);
-
-    if (query.toLowerCase().includes('ван') || query.toLowerCase().includes('one piece')) {
-      debugLogAnimeResults(`SEARCH ${query}`, results);
-      console.log('Mapped search results:', mapped.slice(0, 10));
-    }
-
-    res.json(mapped);
+    res.json(mapSearchResults(results, query));
   } catch (error) {
     console.error('SEARCH ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось выполнить поиск', details: error.message });
@@ -377,10 +425,6 @@ app.get('/api/yummy/anime/:animeUrl', async (req, res) => {
     const animeUrl = decodeURIComponent(req.params.animeUrl);
     const results = await fetchAnimeByStableId(animeUrl);
 
-    if (animeUrl.toLowerCase().includes('one') || animeUrl.toLowerCase().includes('ван') || animeUrl.toLowerCase().includes('shikimori') || animeUrl.toLowerCase().includes('kodik')) {
-      debugLogAnimeResults(`ANIME ${animeUrl}`, results);
-    }
-
     if (!results.length) {
       return res.status(404).json({ error: 'Аниме не найдено' });
     }
@@ -388,9 +432,6 @@ app.get('/api/yummy/anime/:animeUrl', async (req, res) => {
     const first = results[0];
     const animeId = getStableAnimeId(first) || animeUrl;
     const videos = extractEpisodesFromResults(results);
-
-    console.log(`DEBUG videos count for ${animeUrl}:`, videos.length);
-    console.log('DEBUG first videos:', videos.slice(0, 20));
 
     res.json({
       animeId,

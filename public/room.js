@@ -23,6 +23,7 @@ let selectedPlayer = null;
 let searchDebounce = null;
 let lastSearchResults = [];
 let showAllSearchResults = false;
+let latestSearchToken = 0;
 let pendingPlaybackApply = null;
 let isRemoteAction = false;
 let userInteractedWithPlayer = false;
@@ -115,53 +116,6 @@ function getEpisodeNumber(video) {
 
 function getIframeUrl(video) {
   return video?.iframeUrl || video?.iframe_url || null;
-}
-
-function normalizeTextForSearch(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function scoreLocalSearchResult(item, query) {
-  const q = normalizeTextForSearch(query);
-  const title = normalizeTextForSearch(item?.title || '');
-  const year = String(item?.year || '');
-
-  if (!q || !title) return 0;
-
-  if (title === q) return 1000;
-  if (title.startsWith(q)) return 800;
-  if (title.includes(q)) return 500;
-
-  const words = q.split(' ').filter(Boolean);
-  let score = 0;
-
-  for (const word of words) {
-    if (title.startsWith(word)) score += 140;
-    else if (title.includes(word)) score += 90;
-  }
-
-  if (year && q.includes(year)) score += 20;
-
-  return score;
-}
-
-function getFilteredSearchResults(items, query) {
-  return (items || [])
-    .map(item => ({
-      ...item,
-      _score: scoreLocalSearchResult(item, query)
-    }))
-    .filter(item => item._score > 0)
-    .sort((a, b) => {
-      if (b._score !== a._score) return b._score - a._score;
-      return String(a.title).localeCompare(String(b.title), 'ru');
-    })
-    .map(({ _score, ...item }) => item);
 }
 
 function getUniquePlayers(videos) {
@@ -588,8 +542,12 @@ function renderAnimeResults(items) {
   animeList.querySelectorAll('.search-result-item').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', async () => {
-      await selectAnime(btn.dataset.animeUrl);
+      const animeUrl = btn.dataset.animeUrl;
+      if (!animeUrl) return;
+
       animeList.classList.remove('visible');
+      animeList.innerHTML = '';
+      await selectAnime(animeUrl);
     });
   });
 
@@ -702,15 +660,17 @@ async function searchAnime(query) {
 
   if (searchStatus) searchStatus.textContent = 'Поиск...';
   showAllSearchResults = false;
+  latestSearchToken += 1;
+  const token = latestSearchToken;
 
   try {
     const response = await fetch(`/api/yummy/search?q=${encodeURIComponent(rawQuery)}`);
     const data = await response.json();
 
+    if (token !== latestSearchToken) return;
     if (!response.ok) throw new Error(data?.error || 'Ошибка поиска');
 
-    const results = Array.isArray(data) ? data : [];
-    lastSearchResults = getFilteredSearchResults(results, rawQuery);
+    lastSearchResults = Array.isArray(data) ? data : [];
     renderAnimeResults(lastSearchResults);
 
     if (searchStatus) {
@@ -719,6 +679,7 @@ async function searchAnime(query) {
         : 'Ничего не найдено';
     }
   } catch (error) {
+    if (token !== latestSearchToken) return;
     if (searchStatus) searchStatus.textContent = error.message || 'Ошибка поиска';
     if (animeList) {
       animeList.innerHTML = '';
@@ -751,7 +712,6 @@ async function selectAnime(animeUrl) {
     renderSelectedAnimeInfo(selectedAnime);
     renderPlayers(selectedAnime.videos);
     episodesList.innerHTML = `<div class="empty-state">Сначала выберите плеер</div>`;
-    renderAnimeResults(lastSearchResults);
   } catch (error) {
     if (selectedAnimeInfo) selectedAnimeInfo.innerHTML = `<div>${escapeHtml(error.message || 'Ошибка')}</div>`;
     if (playerList) playerList.innerHTML = `<div class="empty-state">Не удалось загрузить плееры</div>`;
