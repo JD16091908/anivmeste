@@ -22,57 +22,54 @@
       </div>
     </header>
 
-    <div class="room-layout" id="roomLayout">
-      <aside class="content-sidebar">
-        <section class="search-panel">
-          <div class="search-panel-header">
-            <h2>Поиск</h2>
-            <p id="hostSearchHint" class="muted-text">
+    <div class="room-layout room-layout-centered" id="roomLayout">
+      <main class="player-area player-area-centered">
+        <section class="center-search-panel">
+          <div class="center-search-head">
+            <h2 class="center-search-title">Поиск аниме</h2>
+            <p id="hostSearchHint" class="muted-text center-search-hint">
               Искать и выбирать серии может только хост комнаты
             </p>
           </div>
 
-          <div class="search-row">
+          <div class="center-search-box">
             <input
               type="text"
               id="searchInput"
-              class="search-input compact-search"
+              class="center-search-input"
               placeholder="Введите название аниме..."
               autocomplete="off"
             />
+            <div class="center-search-icon">⌕</div>
           </div>
 
-          <div id="searchStatus" class="small-note"></div>
+          <div id="searchStatus" class="small-note center-search-status"></div>
+          <div id="animeList" class="search-dropdown"></div>
         </section>
 
-        <section class="block">
-          <h2>Результаты</h2>
-          <div id="animeList" class="anime-list anime-list-compact"></div>
-        </section>
-
-        <section class="block">
+        <section class="selected-anime-panel">
           <h2>Выбранный тайтл</h2>
           <div id="selectedAnimeInfo" class="selected-anime-info">
             Пока ничего не выбрано
           </div>
         </section>
 
-        <section class="block">
-          <h2>Плеер</h2>
-          <div id="playerList" class="anime-list anime-list-compact">
-            <div class="empty-state">Сначала выберите тайтл</div>
+        <section class="selectors-panel">
+          <div class="selector-block">
+            <h2>Плеер / озвучка</h2>
+            <div id="playerList" class="selector-list">
+              <div class="empty-state">Сначала выберите тайтл</div>
+            </div>
+          </div>
+
+          <div class="selector-block">
+            <h2>Серии</h2>
+            <div id="episodesList" class="episodes-grid">
+              <div class="empty-state">Сначала выберите плеер</div>
+            </div>
           </div>
         </section>
 
-        <section class="block">
-          <h2>Серии</h2>
-          <div id="episodesList" class="episodes-list">
-            <div class="empty-state">Сначала выберите плеер</div>
-          </div>
-        </section>
-      </aside>
-
-      <main class="player-area">
         <div class="now-playing-bar">
           <span id="nowPlayingText">Ничего не выбрано</span>
         </div>

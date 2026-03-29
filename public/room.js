@@ -291,7 +291,7 @@ function requestKodikTime() {
   }
 }
 
-function applyPlaybackState(playback, options = {}) {
+function applyPlaybackState(playback) {
   if (!playback) return;
 
   ensureBridgeWindow();
@@ -488,14 +488,14 @@ function renderSelectedAnimeInfo(anime) {
   if (!selectedAnimeInfo) return;
 
   selectedAnimeInfo.innerHTML = `
-    <div style="display:flex;gap:16px;align-items:flex-start;">
-      ${anime.poster ? `<img src="${escapeHtml(anime.poster)}" loading="lazy" style="width:120px;min-width:120px;height:170px;object-fit:cover;border-radius:12px;background:#111827;">` : ''}
-      <div style="min-width:0;">
-        <h3 style="margin:0 0 10px;">${escapeHtml(anime.title)}</h3>
-        <div style="color:#9fb0d3;margin-bottom:10px;">
+    <div class="selected-anime-layout">
+      ${anime.poster ? `<img class="selected-anime-poster" src="${escapeHtml(anime.poster)}" loading="lazy">` : ''}
+      <div class="selected-anime-body">
+        <h3 class="selected-anime-title">${escapeHtml(anime.title)}</h3>
+        <div class="selected-anime-meta">
           ${escapeHtml(anime.year || '')}${anime.type ? ` • ${escapeHtml(anime.type)}` : ''}${anime.status ? ` • ${escapeHtml(anime.status)}` : ''}
         </div>
-        <p style="margin:0;line-height:1.6;">${escapeHtml(anime.description || 'Описание отсутствует')}</p>
+        <p class="selected-anime-description">${escapeHtml(anime.description || 'Описание отсутствует')}</p>
       </div>
     </div>
   `;
@@ -503,27 +503,34 @@ function renderSelectedAnimeInfo(anime) {
 
 function renderAnimeResults(items) {
   if (!animeList) return;
+
   if (!items.length) {
-    animeList.innerHTML = `<div class="empty-state">Ничего не найдено</div>`;
+    animeList.innerHTML = '';
+    animeList.classList.remove('visible');
     return;
   }
 
   animeList.innerHTML = items.map(item => `
-    <button type="button" class="anime-card ${item.animeUrl === selectedAnime?.animeUrl ? 'active' : ''}" data-anime-url="${escapeHtml(item.animeUrl)}">
-      <div class="anime-card-content">
-        ${item.poster ? `<img class="anime-card-poster" src="${escapeHtml(item.poster)}" loading="lazy">` : ''}
-        <div class="anime-card-info">
-          <div class="anime-card-title">${escapeHtml(item.title)}</div>
-          <div class="anime-card-subtitle">${escapeHtml(item.year || '')}${item.type ? ` • ${escapeHtml(item.type)}` : ''}</div>
-        </div>
+    <button
+      type="button"
+      class="search-result-item ${item.animeUrl === selectedAnime?.animeUrl ? 'active' : ''}"
+      data-anime-url="${escapeHtml(item.animeUrl)}"
+    >
+      ${item.poster ? `<img class="search-result-poster" src="${escapeHtml(item.poster)}" loading="lazy">` : '<div class="search-result-poster search-result-poster-empty"></div>'}
+      <div class="search-result-content">
+        <div class="search-result-title">${escapeHtml(item.title)}</div>
+        <div class="search-result-meta">${escapeHtml(item.year || '')}${item.type ? ` • ${escapeHtml(item.type)}` : ''}</div>
       </div>
     </button>
   `).join('');
+
+  animeList.classList.add('visible');
 
   animeList.querySelectorAll('button').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', async () => {
       await selectAnime(btn.dataset.animeUrl);
+      animeList.classList.remove('visible');
     });
   });
 }
@@ -538,8 +545,8 @@ function renderPlayers(videos) {
   }
 
   playerList.innerHTML = players.map(player => `
-    <button type="button" class="episode-btn ${player.name === selectedPlayer ? 'active' : ''}" data-player="${escapeHtml(player.name)}">
-      ${escapeHtml(player.name)} (${player.count})
+    <button type="button" class="selector-chip ${player.name === selectedPlayer ? 'active' : ''}" data-player="${escapeHtml(player.name)}">
+      ${escapeHtml(player.name)} <span class="selector-chip-count">${player.count}</span>
     </button>
   `).join('');
 
@@ -563,8 +570,8 @@ function renderEpisodes(episodes) {
   }
 
   episodesList.innerHTML = episodes.map(episode => `
-    <button type="button" class="episode-btn ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}" data-episode="${episode.episodeNumber}">
-      Серия ${episode.episodeNumber}
+    <button type="button" class="episode-tile ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}" data-episode="${episode.episodeNumber}">
+      ${episode.episodeNumber}
     </button>
   `).join('');
 
@@ -613,7 +620,10 @@ function renderEpisodes(episodes) {
 
 async function searchAnime(query) {
   if (!query || query.trim().length < 2) {
-    if (animeList) animeList.innerHTML = '';
+    if (animeList) {
+      animeList.innerHTML = '';
+      animeList.classList.remove('visible');
+    }
     if (searchStatus) searchStatus.textContent = 'Введите минимум 2 символа';
     return;
   }
@@ -628,7 +638,7 @@ async function searchAnime(query) {
 
     if (!response.ok) throw new Error(data?.error || 'Ошибка поиска');
 
-    lastSearchResults = Array.isArray(data) ? data : [];
+    lastSearchResults = Array.isArray(data) ? data.slice(0, 8) : [];
     renderAnimeResults(lastSearchResults);
 
     if (searchStatus) {
@@ -638,7 +648,10 @@ async function searchAnime(query) {
     }
   } catch (error) {
     if (searchStatus) searchStatus.textContent = error.message || 'Ошибка поиска';
-    if (animeList) animeList.innerHTML = '';
+    if (animeList) {
+      animeList.innerHTML = '';
+      animeList.classList.remove('visible');
+    }
   }
 }
 
@@ -680,6 +693,13 @@ window.addEventListener('pointerdown', () => {
 
 window.addEventListener('keydown', () => {
   userInteractedWithPlayer = true;
+});
+
+document.addEventListener('click', (event) => {
+  const withinSearch = event.target.closest('.center-search-panel');
+  if (!withinSearch) {
+    animeList?.classList.remove('visible');
+  }
 });
 
 window.addEventListener('message', (event) => {
@@ -861,7 +881,13 @@ if (searchInput) {
   searchInput.addEventListener('input', () => {
     clearTimeout(searchDebounce);
     const value = searchInput.value;
-    searchDebounce = setTimeout(() => searchAnime(value), 400);
+    searchDebounce = setTimeout(() => searchAnime(value), 300);
+  });
+
+  searchInput.addEventListener('focus', () => {
+    if (lastSearchResults.length) {
+      renderAnimeResults(lastSearchResults);
+    }
   });
 }
 
