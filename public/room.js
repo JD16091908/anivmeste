@@ -542,7 +542,6 @@ function renderUsers(users) {
           </div>
           <div class="user-time" title="Текущее время просмотра">${escapeHtml(timeText)}</div>
         </div>
-        <div class="user-status">${escapeHtml(user.watchStatus || 'Не начал')}</div>
       </div>
     `;
   }).join('');

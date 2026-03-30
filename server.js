@@ -115,6 +115,14 @@ function getKodikId(item) {
   return item?.id || null;
 }
 
+function getMaterialId(item) {
+  return item?.material_id || item?.material_data?.id || null;
+}
+
+function getLastEpisode(item) {
+  return Number(item?.last_episode || item?.material_data?.last_episode || 0);
+}
+
 function getStableAnimeId(item) {
   const shikimoriId = getShikimoriId(item);
   const kodikId = getKodikId(item);
@@ -403,6 +411,39 @@ function strictMatchResults(items, selected) {
   return filtered;
 }
 
+async function fetchFullEpisodesForLongAnime(results) {
+  const first = results[0];
+  if (!first) return results;
+
+  const currentEpisodesCount = mergeEpisodes(results).length;
+  const maxKnownEpisode = getLastEpisode(first);
+
+  if (currentEpisodesCount >= 10 || maxKnownEpisode < 20) {
+    return results;
+  }
+
+  console.log(`[Long Anime Detected] ${normalizeTitle(first)} | episodes found: ${currentEpisodesCount}, last known: ${maxKnownEpisode}`);
+  console.log('Запрашиваю полный список серий по material_id');
+
+  const materialId = getMaterialId(first);
+  if (!materialId) return results;
+
+  try {
+    const fullData = await kodikGet('/list', {
+      material_id: materialId,
+      with_material_data: 'true',
+      with_episodes: 'true',
+      types: 'anime-serial,anime'
+    });
+
+    const fullResults = Array.isArray(fullData?.results) ? fullData.results : [];
+    return [...results, ...fullResults];
+  } catch (error) {
+    console.log('Не удалось получить полный список серий:', error.message);
+    return results;
+  }
+}
+
 async function fetchAnimeBySelection(selected) {
   if (selected?.shikimoriId) {
     const [searchData, listData] = await Promise.all([
@@ -420,10 +461,12 @@ async function fetchAnimeBySelection(selected) {
       })
     ]);
 
-    return [
+    let results = [
       ...(Array.isArray(searchData?.results) ? searchData.results : []),
       ...(Array.isArray(listData?.results) ? listData.results : [])
     ];
+
+    return await fetchFullEpisodesForLongAnime(results);
   }
 
   if (selected?.kodikId) {
@@ -442,10 +485,12 @@ async function fetchAnimeBySelection(selected) {
       })
     ]);
 
-    return [
+    let results = [
       ...(Array.isArray(searchData?.results) ? searchData.results : []),
       ...(Array.isArray(listData?.results) ? listData.results : [])
     ];
+
+    return await fetchFullEpisodesForLongAnime(results);
   }
 
   if (selected?.title) {
@@ -465,10 +510,12 @@ async function fetchAnimeBySelection(selected) {
       })
     ]);
 
-    return [
+    let results = [
       ...(Array.isArray(searchData?.results) ? searchData.results : []),
       ...(Array.isArray(listData?.results) ? listData.results : [])
     ];
+
+    return await fetchFullEpisodesForLongAnime(results);
   }
 
   return [];
@@ -711,7 +758,6 @@ io.on('connection', (socket) => {
       id: socket.id,
       userKey,
       username: socket.data.username,
-      watchStatus: 'Не начал',
       currentTime: null,
       timeUpdatedAt: 0
     });
@@ -824,18 +870,6 @@ io.on('connection', (socket) => {
 
     user.currentTime = safeTime;
     user.timeUpdatedAt = Date.now();
-
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-  });
-
-  socket.on('update-watch-status', ({ roomId, status }) => {
-    const room = rooms[roomId];
-    if (!room) return;
-
-    const user = room.users.find(u => u.id === socket.id);
-    if (user) {
-      user.watchStatus = status || 'Неизвестно';
-    }
 
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
   });
