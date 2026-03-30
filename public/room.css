@@ -338,20 +338,16 @@
   position: relative;
 }
 
-/* СИЛЬНО РАСШИРЕННАЯ МАСКИРОВКА КНОПКИ KODIK */
+/* ВОЗВРАТ К БОЛЕЕ АККУРАТНОМУ ВИДУ */
 .player-top-overlay {
   position: absolute;
-  top: 8px;
-  left: 0;
+  top: 10px;
+  left: 78px;
   z-index: 8;
   display: flex;
   align-items: flex-start;
   pointer-events: auto;
-  max-width: 100%;
-  padding: 6px 10px 6px 150px;
-  border-radius: 0 0 14px 0;
-  background: rgba(10, 10, 10, 0.98);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.42);
+  max-width: calc(100% - 120px);
 }
 
 .player-overlay-controls {
@@ -371,7 +367,7 @@
   max-width: 138px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 6px;
-  background: rgba(28, 28, 28, 1);
+  background: rgba(28, 28, 28, 0.96);
   color: #fff;
   padding: 0 10px;
   display: inline-flex;
@@ -383,6 +379,7 @@
   font-weight: 700;
   line-height: 1;
   transition: 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 .overlay-control-btn:hover {
@@ -681,7 +678,8 @@
   }
 
   .player-top-overlay {
-    padding-left: 158px;
+    left: 86px;
+    max-width: calc(100% - 140px);
   }
 }
 
@@ -697,7 +695,8 @@
   }
 
   .player-top-overlay {
-    padding-left: 170px;
+    top: 12px;
+    left: 92px;
   }
 
   .overlay-control-btn {
@@ -806,11 +805,9 @@
   }
 
   .player-top-overlay {
-    top: 6px;
-    left: 0;
-    max-width: 100%;
-    padding: 5px 8px 5px 122px;
-    border-radius: 0 0 12px 0;
+    top: 8px;
+    left: 64px;
+    max-width: calc(100% - 84px);
   }
 
   .player-overlay-controls {

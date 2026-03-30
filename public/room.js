@@ -37,6 +37,7 @@ let isOverlaySeasonOpen = false;
 let isOverlayEpisodeOpen = false;
 
 let lastSeriesChatMessage = '';
+let suppressNextVideoChangedMessage = false;
 
 let currentState = {
   animeId: null,
@@ -881,6 +882,7 @@ function launchEpisode(episode, anime) {
   renderOverlayControls();
 
   if (canControl()) {
+    suppressNextVideoChangedMessage = true;
     addSeriesMessageToChat(title);
   }
 
@@ -1203,10 +1205,11 @@ socket.on('video-changed', (state) => {
   if (currentState.embedUrl) {
     loadIframe(currentState.embedUrl);
 
-    if (!isHost || roomId === 'solo') {
-      addSeriesMessageToChat(currentState.title);
-    } else {
+    if (suppressNextVideoChangedMessage) {
+      suppressNextVideoChangedMessage = false;
       resetLastSeriesMessage(currentState.title);
+    } else {
+      addSeriesMessageToChat(currentState.title);
     }
   } else {
     showPlaceholder('Ничего не выбрано', 'Хост пока не запустил тайтл');
