@@ -31,9 +31,10 @@ let userInteractedWithPlayer = false;
 let hostTimeBroadcastTimer = null;
 let kodikTimeRequestTimer = null;
 let userTimeBroadcastTimer = null;
+
+let isOverlayPlayerOpen = false;
 let isOverlaySeasonOpen = false;
 let isOverlayEpisodeOpen = false;
-let nextEpisodeButtonVisible = false;
 
 let currentState = {
   animeId: null,
@@ -66,12 +67,20 @@ const selectedAnimeInfo = document.getElementById('selectedAnimeInfo');
 const hostSearchHint = document.getElementById('hostSearchHint');
 
 const playerTopOverlay = document.getElementById('playerTopOverlay');
+
+const overlayPlayerDropdown = document.getElementById('overlayPlayerDropdown');
 const overlaySeasonDropdown = document.getElementById('overlaySeasonDropdown');
 const overlayEpisodeDropdown = document.getElementById('overlayEpisodeDropdown');
+
+const overlayPlayerBtn = document.getElementById('overlayPlayerBtn');
 const overlaySeasonBtn = document.getElementById('overlaySeasonBtn');
 const overlayEpisodeBtn = document.getElementById('overlayEpisodeBtn');
+
+const overlayPlayerBtnText = document.getElementById('overlayPlayerBtnText');
 const overlaySeasonBtnText = document.getElementById('overlaySeasonBtnText');
 const overlayEpisodeBtnText = document.getElementById('overlayEpisodeBtnText');
+
+const overlayPlayerMenu = document.getElementById('overlayPlayerMenu');
 const overlaySeasonMenu = document.getElementById('overlaySeasonMenu');
 const overlayEpisodeMenu = document.getElementById('overlayEpisodeMenu');
 
@@ -296,13 +305,11 @@ function showNextEpisodeButton() {
   const nextEpisode = getNextEpisode();
   if (!nextEpisode || !canControl()) return;
   btn.classList.remove('hidden');
-  nextEpisodeButtonVisible = true;
 }
 
 function hideNextEpisodeButton() {
   if (!nextEpisodeButton) return;
   nextEpisodeButton.classList.add('hidden');
-  nextEpisodeButtonVisible = false;
 }
 
 function updateNextEpisodeVisibility() {
@@ -344,8 +351,12 @@ function updateControlState() {
   }
 
   animeList?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
-  if (overlaySeasonBtn) overlaySeasonBtn.disabled = disabled;
-  if (overlayEpisodeBtn) overlayEpisodeBtn.disabled = disabled;
+
+  overlayPlayerBtn && (overlayPlayerBtn.disabled = disabled);
+  overlaySeasonBtn && (overlaySeasonBtn.disabled = disabled);
+  overlayEpisodeBtn && (overlayEpisodeBtn.disabled = disabled);
+
+  overlayPlayerMenu?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
   overlaySeasonMenu?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
   overlayEpisodeMenu?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
 
@@ -755,8 +766,11 @@ function renderAnimeResults(items) {
 }
 
 function hideOverlayMenus() {
+  isOverlayPlayerOpen = false;
   isOverlaySeasonOpen = false;
   isOverlayEpisodeOpen = false;
+
+  overlayPlayerDropdown?.classList.remove('open');
   overlaySeasonDropdown?.classList.remove('open');
   overlayEpisodeDropdown?.classList.remove('open');
 }
@@ -798,6 +812,10 @@ function renderOverlayControls() {
   const bySeason = getVideosBySelectedSeason(byPlayer);
   const episodes = getUniqueEpisodes(bySeason);
 
+  if (overlayPlayerBtnText) {
+    overlayPlayerBtnText.textContent = selectedPlayer || 'Озвучка';
+  }
+
   if (overlaySeasonBtnText) {
     overlaySeasonBtnText.textContent = `${selectedSeason || 1} сезон`;
   }
@@ -806,9 +824,16 @@ function renderOverlayControls() {
     overlayEpisodeBtnText.textContent = `${currentState.episodeNumber || episodes[0]?.episodeNumber || 1} серия`;
   }
 
-  if (overlaySeasonDropdown) {
-    overlaySeasonDropdown.style.display = seasons.length > 1 ? '' : 'none';
-  }
+  overlayPlayerMenu.innerHTML = players.map(player => `
+    <button
+      type="button"
+      class="overlay-dropdown-item ${player.name === selectedPlayer ? 'active' : ''}"
+      data-player="${escapeHtml(player.name)}"
+    >
+      <span>${escapeHtml(player.name)}</span>
+      <span class="overlay-item-count">${player.count}</span>
+    </button>
+  `).join('');
 
   overlaySeasonMenu.innerHTML = seasons.map(season => `
     <button
@@ -832,8 +857,32 @@ function renderOverlayControls() {
     </button>
   `).join('');
 
+  overlaySeasonDropdown.style.display = seasons.length > 1 ? '' : 'none';
+
+  overlayPlayerDropdown?.classList.toggle('open', isOverlayPlayerOpen);
   overlaySeasonDropdown?.classList.toggle('open', isOverlaySeasonOpen);
   overlayEpisodeDropdown?.classList.toggle('open', isOverlayEpisodeOpen);
+
+  overlayPlayerMenu.querySelectorAll('[data-player]').forEach(btn => {
+    btn.disabled = !canControl();
+    btn.addEventListener('click', () => {
+      selectedPlayer = btn.dataset.player;
+      selectedSeason = null;
+      isOverlayPlayerOpen = false;
+
+      const refreshedByPlayer = getVideosBySelectedPlayer(selectedAnime?.videos || []);
+      const seasonsAfterPlayerChange = getUniqueSeasons(refreshedByPlayer);
+      selectedSeason = seasonsAfterPlayerChange[0]?.season || 1;
+
+      renderOverlayControls();
+
+      const refreshedBySeason = getVideosBySelectedSeason(refreshedByPlayer);
+      const firstEpisode = getUniqueEpisodes(refreshedBySeason)[0];
+      if (firstEpisode) {
+        launchEpisode(firstEpisode, selectedAnime);
+      }
+    });
+  });
 
   overlaySeasonMenu.querySelectorAll('[data-season]').forEach(btn => {
     btn.disabled = !canControl();
@@ -1041,10 +1090,20 @@ document.addEventListener('click', (event) => {
   }
 });
 
+overlayPlayerBtn?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (!canControl()) return;
+  isOverlayPlayerOpen = !isOverlayPlayerOpen;
+  isOverlaySeasonOpen = false;
+  isOverlayEpisodeOpen = false;
+  renderOverlayControls();
+});
+
 overlaySeasonBtn?.addEventListener('click', (event) => {
   event.stopPropagation();
   if (!canControl()) return;
   isOverlaySeasonOpen = !isOverlaySeasonOpen;
+  isOverlayPlayerOpen = false;
   isOverlayEpisodeOpen = false;
   renderOverlayControls();
 });
@@ -1053,6 +1112,7 @@ overlayEpisodeBtn?.addEventListener('click', (event) => {
   event.stopPropagation();
   if (!canControl()) return;
   isOverlayEpisodeOpen = !isOverlayEpisodeOpen;
+  isOverlayPlayerOpen = false;
   isOverlaySeasonOpen = false;
   renderOverlayControls();
 });

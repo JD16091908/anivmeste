@@ -847,3 +847,18 @@
 .player-area-centered {
   gap: 14px;
 }
+.player-overlay-controls {
+  gap: 6px;
+}
+
+.overlay-control-btn {
+  min-width: 96px;
+  max-width: 138px;
+}
+
+@media (max-width: 768px) {
+  .overlay-control-btn {
+    min-width: 74px;
+    max-width: 96px;
+  }
+}
