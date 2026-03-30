@@ -840,3 +840,10 @@
     font-size: 13px;
   }
 }
+.player-shell-raised {
+  margin-top: -6px;
+}
+
+.player-area-centered {
+  gap: 14px;
+}

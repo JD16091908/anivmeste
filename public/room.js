@@ -52,7 +52,6 @@ let currentState = {
 const roomTitle = document.getElementById('roomTitle');
 const hostBadge = document.getElementById('hostBadge');
 const usersList = document.getElementById('usersList');
-const nowPlayingText = document.getElementById('nowPlayingText');
 const placeholder = document.getElementById('placeholder');
 const animeList = document.getElementById('animeList');
 const searchInput = document.getElementById('searchInput');
@@ -89,6 +88,16 @@ function sys(text) {
   if (chatMessages && window.ChatModule) {
     ChatModule.appendSystemMessage(chatMessages, text);
   }
+}
+
+function addSeriesMessageToChat(title) {
+  if (!title || !chatMessages || !window.ChatModule) return;
+
+  const text = roomId === 'solo'
+    ? `Вы выбрали: ${title}`
+    : `Хост выбрал: ${title}`;
+
+  ChatModule.appendSystemMessage(chatMessages, text);
 }
 
 function escapeHtml(value) {
@@ -348,8 +357,6 @@ function updateControlState() {
 }
 
 function showPlaceholder(title = 'Ничего не выбрано', description = 'Выберите аниме') {
-  if (nowPlayingText) nowPlayingText.textContent = title;
-
   const oldFrame = document.getElementById('videoFrame');
   if (oldFrame) oldFrame.remove();
 
@@ -532,7 +539,7 @@ function applyPlaybackStateWhenReady(playback, attempts = 10) {
   tryApply();
 }
 
-function loadIframe(embedUrl, title) {
+function loadIframe(embedUrl) {
   if (!embedUrl) {
     showPlaceholder('Серия не запущена', 'У выбранного тайтла отсутствует iframe');
     return;
@@ -547,7 +554,6 @@ function loadIframe(embedUrl, title) {
   bridge.playerType = detectPlayerType(embedUrl);
 
   if (placeholder) placeholder.style.display = 'none';
-  if (nowPlayingText) nowPlayingText.textContent = title || 'Без названия';
 
   iframe.addEventListener('load', () => {
     ensureBridgeWindow();
@@ -891,9 +897,10 @@ function launchEpisode(episode, anime) {
   selectedPlayer = playerName;
 
   userInteractedWithPlayer = true;
-  loadIframe(embedUrl, title);
+  loadIframe(embedUrl);
   renderOverlayControls();
   hideNextEpisodeButton();
+  addSeriesMessageToChat(title);
 
   if (roomId !== 'solo') {
     socket.emit('change-video', {
@@ -1168,7 +1175,7 @@ socket.on('sync-state', (state) => {
   };
 
   if (currentState.embedUrl) {
-    loadIframe(currentState.embedUrl, currentState.title);
+    loadIframe(currentState.embedUrl);
 
     if (typeof currentState.playback.currentTime === 'number' && currentState.playback.currentTime > 0.5) {
       pendingPlaybackApply = currentState.playback;
@@ -1205,7 +1212,8 @@ socket.on('video-changed', (state) => {
   }
 
   if (currentState.embedUrl) {
-    loadIframe(currentState.embedUrl, currentState.title);
+    loadIframe(currentState.embedUrl);
+    addSeriesMessageToChat(currentState.title);
   } else {
     showPlaceholder('Ничего не выбрано', 'Хост пока не запустил тайтл');
   }
