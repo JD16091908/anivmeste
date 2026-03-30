@@ -63,7 +63,6 @@ const roomPage = document.getElementById('roomPage');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
-const statusButtons = document.querySelectorAll('.status-btn');
 const searchStatus = document.getElementById('searchStatus');
 const selectedAnimeInfo = document.getElementById('selectedAnimeInfo');
 const hostSearchHint = document.getElementById('hostSearchHint');
@@ -1205,15 +1204,6 @@ if (sendBtn && chatInput) {
     if (e.key === 'Enter') sendBtn.click();
   });
 }
-
-statusButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const status = btn.dataset.status || 'Неизвестно';
-    if (roomId !== 'solo') {
-      socket.emit('update-watch-status', { roomId, status });
-    }
-  });
-});
 
 window.addEventListener('beforeunload', () => {
   stopHostTimers();

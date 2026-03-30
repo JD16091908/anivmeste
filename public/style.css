@@ -200,8 +200,7 @@ input::placeholder {
 }
 
 .btn,
-.small-btn,
-.status-btn {
+.small-btn {
   border: none;
   border-radius: 14px;
   cursor: pointer;
@@ -210,8 +209,7 @@ input::placeholder {
 }
 
 .btn:hover,
-.small-btn:hover,
-.status-btn:hover {
+.small-btn:hover {
   transform: translateY(-1px);
 }
 
@@ -783,22 +781,6 @@ input::placeholder {
   font-size: 14px;
 }
 
-.status-buttons {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.status-btn {
-  padding: 10px 14px;
-  background: #324465;
-  color: #fff;
-}
-
-.active-status {
-  background: var(--purple) !important;
-}
-
 .chat-block {
   display: flex;
   flex-direction: column;
@@ -1025,6 +1007,18 @@ input::placeholder {
   color: #fff;
 }
 
+.selectors-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.selectors-row .player-dropdown {
+  flex: 1 1 280px;
+  max-width: none;
+}
+
 @media (max-width: 1200px) {
   .room-layout-new {
     grid-template-columns: 1fr;
@@ -1151,15 +1145,4 @@ input::placeholder {
     margin-bottom: 18px;
     padding: 14px 16px;
   }
-}
-.selectors-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.selectors-row .player-dropdown {
-  flex: 1 1 280px;
-  max-width: none;
 }
