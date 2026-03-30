@@ -568,17 +568,19 @@ input::placeholder {
 .player-top-overlay {
   position: absolute;
   top: 10px;
-  right: 56px;
+  left: 10px;
   z-index: 6;
   display: flex;
   align-items: flex-start;
   pointer-events: auto;
+  max-width: calc(100% - 70px);
 }
 
 .player-overlay-controls {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .overlay-dropdown {
@@ -586,17 +588,20 @@ input::placeholder {
 }
 
 .overlay-control-btn {
-  min-height: 30px;
+  height: 30px;
+  min-width: 88px;
+  max-width: 110px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   background: rgba(20, 20, 20, 0.96);
   color: #fff;
-  padding: 0 11px;
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   transition: 0.15s ease;
@@ -612,9 +617,16 @@ input::placeholder {
   cursor: not-allowed;
 }
 
+.overlay-control-btn span:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .overlay-control-arrow {
-  font-size: 12px;
+  font-size: 11px;
   opacity: 0.85;
+  flex-shrink: 0;
 }
 
 .overlay-dropdown-menu {
@@ -622,13 +634,13 @@ input::placeholder {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  min-width: 140px;
+  min-width: 130px;
   background: rgba(20, 20, 20, 0.985);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
   padding: 6px;
-  max-height: 260px;
+  max-height: 240px;
   overflow-y: auto;
 }
 
@@ -637,11 +649,12 @@ input::placeholder {
 }
 
 .overlay-dropdown-menu-episodes {
-  min-width: 320px;
-  max-width: 420px;
+  min-width: 260px;
+  max-width: min(360px, calc(100vw - 80px));
   display: none;
-  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
+  align-content: start;
 }
 
 .overlay-dropdown.open .overlay-dropdown-menu-episodes {
@@ -653,7 +666,7 @@ input::placeholder {
   border: none;
   background: transparent;
   color: #fff;
-  padding: 9px 10px;
+  padding: 8px 10px;
   border-radius: 6px;
   cursor: pointer;
   text-align: left;
@@ -662,7 +675,7 @@ input::placeholder {
   justify-content: space-between;
   gap: 8px;
   transition: 0.15s ease;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -671,15 +684,17 @@ input::placeholder {
 }
 
 .overlay-dropdown-item.active {
-  background: #363636;
-  color: #7cc3ff;
+  background: #444b55;
+  color: #fff;
 }
 
 .overlay-dropdown-item-episode {
   justify-content: center;
   text-align: center;
-  padding: 9px 6px;
+  padding: 8px 4px;
+  min-height: 34px;
   font-weight: 700;
+  border-radius: 6px;
 }
 
 .overlay-item-count {
@@ -1014,22 +1029,31 @@ input::placeholder {
 
   .player-top-overlay {
     top: 8px;
-    right: 44px;
+    left: 8px;
+    max-width: calc(100% - 56px);
   }
 
   .player-overlay-controls {
-    gap: 6px;
+    gap: 4px;
   }
 
   .overlay-control-btn {
-    min-height: 28px;
-    padding: 0 9px;
-    font-size: 12px;
+    height: 28px;
+    min-width: 78px;
+    max-width: 96px;
+    padding: 0 8px;
+    font-size: 11px;
   }
 
   .overlay-dropdown-menu-episodes {
-    min-width: 250px;
-    max-width: 300px;
-    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+    min-width: 220px;
+    max-width: min(280px, calc(100vw - 40px));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .overlay-dropdown-item-episode {
+    min-height: 30px;
+    font-size: 11px;
   }
 }
