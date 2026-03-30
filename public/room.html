@@ -59,11 +59,31 @@
         </div>
 
         <div class="player-shell">
-          <div class="player-wrapper" id="playerWrapper">
+          <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
+            <div id="playerTopOverlay" class="player-top-overlay hidden">
+              <div class="player-overlay-controls">
+                <div class="overlay-dropdown" id="overlaySeasonDropdown">
+                  <button type="button" id="overlaySeasonBtn" class="overlay-control-btn">
+                    <span id="overlaySeasonBtnText">1 сезон</span>
+                    <span class="overlay-control-arrow">⌄</span>
+                  </button>
+                  <div id="overlaySeasonMenu" class="overlay-dropdown-menu"></div>
+                </div>
+
+                <div class="overlay-dropdown" id="overlayEpisodeDropdown">
+                  <button type="button" id="overlayEpisodeBtn" class="overlay-control-btn">
+                    <span id="overlayEpisodeBtnText">1 серия</span>
+                    <span class="overlay-control-arrow">⌄</span>
+                  </button>
+                  <div id="overlayEpisodeMenu" class="overlay-dropdown-menu overlay-dropdown-menu-episodes"></div>
+                </div>
+              </div>
+            </div>
+
             <div id="placeholder" class="placeholder">
               <div>
                 <h2>Выберите аниме</h2>
-                <p>После выбора тайтла встроенный плеер Kodik сам покажет сезоны, озвучки и серии внутри себя</p>
+                <p>После выбора тайтла можно менять сезоны и серии прямо поверх плеера</p>
               </div>
             </div>
           </div>

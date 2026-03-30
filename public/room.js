@@ -19,6 +19,8 @@ const userKey = getOrCreateUserKey();
 
 let isHost = false;
 let selectedAnime = null;
+let selectedPlayer = null;
+let selectedSeason = null;
 let searchDebounce = null;
 let lastSearchResults = [];
 let showAllSearchResults = false;
@@ -29,6 +31,8 @@ let userInteractedWithPlayer = false;
 let hostTimeBroadcastTimer = null;
 let kodikTimeRequestTimer = null;
 let userTimeBroadcastTimer = null;
+let isOverlaySeasonOpen = false;
+let isOverlayEpisodeOpen = false;
 
 let currentState = {
   animeId: null,
@@ -60,6 +64,16 @@ const sendBtn = document.getElementById('sendBtn');
 const searchStatus = document.getElementById('searchStatus');
 const selectedAnimeInfo = document.getElementById('selectedAnimeInfo');
 const hostSearchHint = document.getElementById('hostSearchHint');
+
+const playerTopOverlay = document.getElementById('playerTopOverlay');
+const overlaySeasonDropdown = document.getElementById('overlaySeasonDropdown');
+const overlayEpisodeDropdown = document.getElementById('overlayEpisodeDropdown');
+const overlaySeasonBtn = document.getElementById('overlaySeasonBtn');
+const overlayEpisodeBtn = document.getElementById('overlayEpisodeBtn');
+const overlaySeasonBtnText = document.getElementById('overlaySeasonBtnText');
+const overlayEpisodeBtnText = document.getElementById('overlayEpisodeBtnText');
+const overlaySeasonMenu = document.getElementById('overlaySeasonMenu');
+const overlayEpisodeMenu = document.getElementById('overlayEpisodeMenu');
 
 if (roomTitle) {
   roomTitle.textContent = roomId === 'solo' ? 'Одиночный просмотр' : `Комната: ${roomId}`;
@@ -165,6 +179,11 @@ function getUniquePlayers(videos) {
   });
 }
 
+function getVideosBySelectedPlayer(videos) {
+  if (!selectedPlayer) return [];
+  return (videos || []).filter(v => getPlayerName(v) === selectedPlayer && !!getIframeUrl(v));
+}
+
 function getUniqueSeasons(videos) {
   const map = new Map();
 
@@ -178,6 +197,11 @@ function getUniqueSeasons(videos) {
   }
 
   return [...map.values()].sort((a, b) => a.season - b.season);
+}
+
+function getVideosBySelectedSeason(videos) {
+  if (!selectedSeason) return [];
+  return (videos || []).filter(v => getSeasonNumber(v) === selectedSeason);
 }
 
 function getUniqueEpisodes(videos) {
@@ -196,18 +220,21 @@ function getUniqueEpisodes(videos) {
   return [...map.values()].sort((a, b) => a.episodeNumber - b.episodeNumber);
 }
 
-function findDefaultEpisode(videos) {
+function findDefaultContext(videos) {
   const players = getUniquePlayers(videos);
   if (!players.length) return null;
 
-  const firstPlayer = players[0].name;
-  const playerVideos = (videos || []).filter(v => getPlayerName(v) === firstPlayer && !!getIframeUrl(v));
-  const seasons = getUniqueSeasons(playerVideos);
-  const firstSeason = seasons[0]?.season || 1;
-  const seasonVideos = playerVideos.filter(v => getSeasonNumber(v) === firstSeason);
-  const episodes = getUniqueEpisodes(seasonVideos);
+  const player = players[0].name;
+  const byPlayer = (videos || []).filter(v => getPlayerName(v) === player && !!getIframeUrl(v));
+  const seasons = getUniqueSeasons(byPlayer);
+  const season = seasons[0]?.season || 1;
+  const bySeason = byPlayer.filter(v => getSeasonNumber(v) === season);
+  const episodes = getUniqueEpisodes(bySeason);
+  const episode = episodes[0] || null;
 
-  return episodes[0] || null;
+  if (!episode) return null;
+
+  return { player, season, episode };
 }
 
 function updateControlState() {
@@ -231,6 +258,10 @@ function updateControlState() {
   }
 
   animeList?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
+  overlaySeasonBtn.disabled = disabled;
+  overlayEpisodeBtn.disabled = disabled;
+  overlaySeasonMenu?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
+  overlayEpisodeMenu?.querySelectorAll('button').forEach(btn => btn.disabled = disabled);
 }
 
 function showPlaceholder(title = 'Ничего не выбрано', description = 'Выберите аниме') {
@@ -244,6 +275,7 @@ function showPlaceholder(title = 'Ничего не выбрано', description
     placeholder.innerHTML = `<div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(description)}</p></div>`;
   }
 
+  hideOverlay();
   resetBridge();
 }
 
@@ -631,6 +663,118 @@ function renderAnimeResults(items) {
   }
 }
 
+function hideOverlayMenus() {
+  isOverlaySeasonOpen = false;
+  isOverlayEpisodeOpen = false;
+  overlaySeasonDropdown?.classList.remove('open');
+  overlayEpisodeDropdown?.classList.remove('open');
+}
+
+function hideOverlay() {
+  hideOverlayMenus();
+  playerTopOverlay?.classList.add('hidden');
+}
+
+function showOverlay() {
+  if (!playerTopOverlay) return;
+  playerTopOverlay.classList.remove('hidden');
+}
+
+function renderOverlayControls() {
+  if (!selectedAnime) {
+    hideOverlay();
+    return;
+  }
+
+  const videos = selectedAnime.videos || [];
+  const players = getUniquePlayers(videos);
+
+  if (!selectedPlayer && players.length) {
+    selectedPlayer = players[0].name;
+  }
+
+  const byPlayer = getVideosBySelectedPlayer(videos);
+  const seasons = getUniqueSeasons(byPlayer);
+
+  if (!selectedSeason) {
+    selectedSeason = seasons[0]?.season || 1;
+  }
+
+  if (!seasons.find(s => s.season === selectedSeason)) {
+    selectedSeason = seasons[0]?.season || 1;
+  }
+
+  const bySeason = getVideosBySelectedSeason(byPlayer);
+  const episodes = getUniqueEpisodes(bySeason);
+
+  if (overlaySeasonBtnText) {
+    overlaySeasonBtnText.textContent = `${selectedSeason || 1} сезон`;
+  }
+
+  if (overlayEpisodeBtnText) {
+    overlayEpisodeBtnText.textContent = `${currentState.episodeNumber || episodes[0]?.episodeNumber || 1} серия`;
+  }
+
+  overlaySeasonMenu.innerHTML = seasons.map(season => `
+    <button
+      type="button"
+      class="overlay-dropdown-item ${season.season === selectedSeason ? 'active' : ''}"
+      data-season="${season.season}"
+    >
+      <span>${season.season} сезон</span>
+      <span class="overlay-item-count">${season.count}</span>
+    </button>
+  `).join('');
+
+  overlayEpisodeMenu.innerHTML = episodes.map(episode => `
+    <button
+      type="button"
+      class="overlay-dropdown-item overlay-dropdown-item-episode ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}"
+      data-episode="${episode.episodeNumber}"
+      title="Серия ${episode.episodeNumber}"
+    >
+      ${episode.episodeNumber}
+    </button>
+  `).join('');
+
+  overlaySeasonDropdown?.classList.toggle('open', isOverlaySeasonOpen);
+  overlayEpisodeDropdown?.classList.toggle('open', isOverlayEpisodeOpen);
+
+  overlaySeasonMenu.querySelectorAll('[data-season]').forEach(btn => {
+    btn.disabled = !canControl();
+    btn.addEventListener('click', () => {
+      selectedSeason = Number(btn.dataset.season) || 1;
+      isOverlaySeasonOpen = false;
+      renderOverlayControls();
+
+      const refreshedByPlayer = getVideosBySelectedPlayer(selectedAnime?.videos || []);
+      const refreshedBySeason = getVideosBySelectedSeason(refreshedByPlayer);
+      const firstEpisode = getUniqueEpisodes(refreshedBySeason)[0];
+      if (firstEpisode) {
+        launchEpisode(firstEpisode, selectedAnime);
+      }
+    });
+  });
+
+  overlayEpisodeMenu.querySelectorAll('[data-episode]').forEach(btn => {
+    btn.disabled = !canControl();
+    btn.addEventListener('click', () => {
+      const episodeNumber = Number(btn.dataset.episode);
+      const refreshedByPlayer = getVideosBySelectedPlayer(selectedAnime?.videos || []);
+      const refreshedBySeason = getVideosBySelectedSeason(refreshedByPlayer);
+      const episode = getUniqueEpisodes(refreshedBySeason).find(v => v.episodeNumber === episodeNumber);
+      if (!episode) return;
+
+      isOverlayEpisodeOpen = false;
+      renderOverlayControls();
+      launchEpisode(episode, selectedAnime);
+    });
+  });
+
+  showOverlay();
+  updateControlState();
+}
+
 function launchEpisode(episode, anime) {
   if (!episode) return;
 
@@ -654,8 +798,12 @@ function launchEpisode(episode, anime) {
     }
   };
 
+  selectedSeason = season;
+  selectedPlayer = playerName;
+
   userInteractedWithPlayer = true;
   loadIframe(embedUrl, title);
+  renderOverlayControls();
 
   if (roomId !== 'solo') {
     socket.emit('change-video', {
@@ -753,20 +901,25 @@ async function selectAnime(itemOrAnimeUrl) {
       videos: Array.isArray(data?.videos) ? data.videos : []
     };
 
-    renderSelectedAnimeInfo(selectedAnime);
+    const context = findDefaultContext(selectedAnime.videos);
 
-    const defaultEpisode = findDefaultEpisode(selectedAnime.videos);
-
-    if (!defaultEpisode) {
+    if (!context) {
+      renderSelectedAnimeInfo(selectedAnime);
       showPlaceholder('Нет доступных серий', 'Для выбранного тайтла не удалось найти рабочий плеер');
       return;
     }
 
-    launchEpisode(defaultEpisode, selectedAnime);
+    selectedPlayer = context.player;
+    selectedSeason = context.season;
+
+    renderSelectedAnimeInfo(selectedAnime);
+    renderOverlayControls();
+    launchEpisode(context.episode, selectedAnime);
   } catch (error) {
     if (selectedAnimeInfo) {
       selectedAnimeInfo.innerHTML = `<div>${escapeHtml(error.message || 'Ошибка')}</div>`;
     }
+    hideOverlay();
   }
 }
 
@@ -783,6 +936,27 @@ document.addEventListener('click', (event) => {
   if (!withinSearch) {
     animeList?.classList.remove('visible');
   }
+
+  const withinOverlay = event.target.closest('.player-top-overlay');
+  if (!withinOverlay) {
+    hideOverlayMenus();
+  }
+});
+
+overlaySeasonBtn?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (!canControl()) return;
+  isOverlaySeasonOpen = !isOverlaySeasonOpen;
+  isOverlayEpisodeOpen = false;
+  renderOverlayControls();
+});
+
+overlayEpisodeBtn?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  if (!canControl()) return;
+  isOverlayEpisodeOpen = !isOverlayEpisodeOpen;
+  isOverlaySeasonOpen = false;
+  renderOverlayControls();
 });
 
 window.addEventListener('message', (event) => {
@@ -909,6 +1083,10 @@ socket.on('sync-state', (state) => {
   } else {
     showPlaceholder('Ничего не выбрано', 'Хост пока не запустил тайтл');
   }
+
+  if (selectedAnime?.videos?.length) {
+    renderOverlayControls();
+  }
 });
 
 socket.on('video-changed', (state) => {
@@ -925,6 +1103,10 @@ socket.on('video-changed', (state) => {
       updatedAt: 0
     }
   };
+
+  if (selectedAnime?.videos?.length) {
+    renderOverlayControls();
+  }
 
   if (currentState.embedUrl) {
     loadIframe(currentState.embedUrl, currentState.title);

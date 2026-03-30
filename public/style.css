@@ -53,8 +53,6 @@ input {
   pointer-events: none !important;
 }
 
-/* ===== Главная ===== */
-
 .main-page {
   width: 100%;
 }
@@ -239,8 +237,6 @@ input::placeholder {
   color: #fff;
 }
 
-/* ===== Комната ===== */
-
 .room-page {
   min-height: 100vh;
   background: #0b1020;
@@ -295,15 +291,13 @@ input::placeholder {
   font-weight: 800;
 }
 
-.room-layout-centered,
-.room-layout-new {
+.room-layout-centered {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   min-height: calc(100vh - 72px);
 }
 
-.player-area-centered,
-.room-main {
+.player-area-centered {
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -311,22 +305,15 @@ input::placeholder {
   background: #222;
 }
 
-.right-sidebar,
-.room-sidebar {
+.right-sidebar {
   background: var(--panel);
   padding: 14px;
   overflow-y: auto;
   border-left: 1px solid var(--line);
 }
 
-/* --- Поиск и выбор --- */
-
 .center-search-panel,
-.anime-search-section,
-.anime-selected-section,
-.anime-controls-section,
-.selected-anime-panel,
-.player-panel {
+.selected-anime-panel {
   position: relative;
   padding: 18px;
   border-radius: 18px;
@@ -335,19 +322,13 @@ input::placeholder {
 }
 
 .center-search-head h2,
-.anime-search-header h2,
-.anime-selected-section h2,
-.anime-control-block h2,
-.selected-anime-panel h2,
-.selector-block h2 {
+.selected-anime-panel h2 {
   margin: 0 0 8px;
   font-size: 18px;
   color: #fff;
 }
 
 .muted-text,
-.anime-search-hint,
-.anime-search-status,
 .users-caption,
 .center-search-hint {
   color: var(--muted);
@@ -359,14 +340,12 @@ input::placeholder {
   margin: -4px 0 10px;
 }
 
-.center-search-box,
-.anime-search-box {
+.center-search-box {
   position: relative;
   margin-top: 12px;
 }
 
-.center-search-input,
-.anime-search-input {
+.center-search-input {
   width: 100%;
   height: 56px;
   padding: 0 58px 0 18px;
@@ -378,19 +357,16 @@ input::placeholder {
   font-size: 18px;
 }
 
-.center-search-input:focus,
-.anime-search-input:focus {
+.center-search-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 98, 107, 0.15);
 }
 
-.center-search-input::placeholder,
-.anime-search-input::placeholder {
+.center-search-input::placeholder {
   color: #9d9d9d;
 }
 
-.center-search-icon,
-.anime-search-icon {
+.center-search-icon {
   position: absolute;
   top: 50%;
   right: 18px;
@@ -400,13 +376,11 @@ input::placeholder {
   pointer-events: none;
 }
 
-.center-search-status,
-.anime-search-status {
+.center-search-status {
   margin-top: 10px;
 }
 
-.search-dropdown,
-.anime-search-dropdown {
+.search-dropdown {
   display: none;
   position: absolute;
   top: calc(100% - 8px);
@@ -422,8 +396,7 @@ input::placeholder {
   overflow-y: auto;
 }
 
-.search-dropdown.visible,
-.anime-search-dropdown.visible {
+.search-dropdown.visible {
   display: block;
 }
 
@@ -500,8 +473,7 @@ input::placeholder {
   background: #4a4a4a;
 }
 
-.selected-anime-info,
-.selected-anime-card {
+.selected-anime-info {
   color: #dbe7ff;
   font-size: 14px;
   line-height: 1.45;
@@ -544,339 +516,16 @@ input::placeholder {
   color: #d7d7d7;
 }
 
-/* --- НОВЫЙ БЛОК ВЫБОРА СЕРИЙ (как на скрине) --- */
-
-.selectors-panel,
-.selectors-panel-upgraded {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.selector-block {
-  display: flex;
-  flex-direction: column;
-}
-
-.selector-block-compact {
-  background: var(--panel-dark);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 18px;
-}
-
-.selector-block-episodes {
-  background: var(--panel-dark);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 18px;
-}
-
-.selector-block-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  flex-wrap: wrap;
-}
-
-.selector-block-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-
-.selector-meta-text {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.selector-list,
-.selector-list-upgraded {
-  width: 100%;
-}
-
-.anime-control-block + .anime-control-block {
-  margin-top: 18px;
-}
-
-/* --- Чипы озвучки/сезона (dropdown кнопки сверху) --- */
-
-.chips-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.selector-chip {
-  border: none;
-  border-radius: 12px;
-  padding: 12px 16px;
-  background: var(--chip);
-  color: #fff;
-  cursor: pointer;
-  font-weight: 700;
-  transition: 0.2s ease;
-}
-
-.selector-chip:hover {
-  background: var(--chip-hover);
-}
-
-.selector-chip.active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.selector-chip:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.selector-chip-count {
-  margin-left: 6px;
-  opacity: 0.8;
-}
-
-/* --- Кнопки выбора озвучки/сезона --- */
-
-.selectors-toolbar {
-  width: 100%;
-}
-
-.selector-chip-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.player-dropdown {
-  position: relative;
-  min-width: 180px;
-  flex: 1 1 auto;
-}
-
-.player-dropdown-compact {
-  max-width: 100%;
-}
-
-.player-dropdown-trigger {
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  background: #2d2d2d;
-  color: #fff;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-  transition: 0.2s ease;
-  text-align: left;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.player-dropdown-trigger:hover {
-  background: #353535;
-  border-color: rgba(255, 255, 255, 0.18);
-}
-
-.player-dropdown-trigger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.compact-trigger {
-  min-height: 44px;
-  font-size: 14px;
-}
-
-.player-dropdown-trigger-text {
+.selected-anime-extra {
+  margin-top: 14px;
+  color: #9db4ff;
   font-size: 14px;
   font-weight: 700;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.player-dropdown-trigger-arrow {
-  flex-shrink: 0;
-  font-size: 16px;
-  opacity: 0.8;
-}
-
-.player-dropdown-menu {
-  display: none;
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  min-width: 100%;
-  width: max-content;
-  z-index: 40;
-  background: #1f1f1f;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
-  overflow: hidden;
-}
-
-.compact-menu {
-  max-width: 420px;
-}
-
-.player-dropdown.open .player-dropdown-menu {
-  display: block;
-}
-
-.player-dropdown-label {
-  padding: 12px 14px 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #8c8c8c;
-  letter-spacing: 0.08em;
-}
-
-.player-dropdown-items {
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 0 6px 8px;
-}
-
-.player-dropdown-item {
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: left;
-  transition: 0.15s ease;
-}
-
-.player-dropdown-item:hover {
-  background: #2d2d2d;
-}
-
-.player-dropdown-item.active {
-  background: #363636;
-  color: var(--accent);
-}
-
-.player-dropdown-item:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.player-dropdown-item-title {
-  font-size: 14px;
-  line-height: 1.3;
-  word-break: break-word;
-  font-weight: 600;
-}
-
-.player-dropdown-item-count {
-  flex-shrink: 0;
-  min-width: 32px;
-  height: 26px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: #4a4a4a;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: #fff;
-}
-
-/* --- Сетка серий (кнопки как на референсе) --- */
-
-.episodes-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 0;
-  max-height: 280px;
-  overflow-y: auto;
-  align-content: flex-start;
-}
-
-.episodes-grid-upgraded {
-  gap: 8px;
-}
-
-.episode-tile {
-  min-width: 44px;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 10px;
-  background: #252525;
-  color: #e5e5e5;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 14px;
-  line-height: 1;
-  transition: all 0.15s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.episode-chip {
-  min-width: 44px;
-  height: 40px;
-}
-
-.episode-chip-number {
-  font-variant-numeric: tabular-nums;
-}
-
-.episode-tile:hover {
-  background: #303030;
-  border-color: rgba(255, 255, 255, 0.20);
-  transform: translateY(-1px);
-}
-
-.episode-tile.active {
-  background: linear-gradient(135deg, #49d17d, #3db86f);
-  border-color: rgba(73, 209, 125, 0.8);
-  color: #08140d;
-  font-weight: 800;
-  box-shadow: 0 4px 12px rgba(73, 209, 125, 0.25);
-}
-
-.episode-tile:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
-}
-
-#episodesList {
-  padding-top: 4px;
-  padding-bottom: 8px;
-}
-
-/* --- Плеер --- */
-
-.player-panel {
-  padding-top: 16px;
 }
 
 .now-playing-bar {
-  margin-top: 22px;
-  margin-bottom: 20px;
+  margin-top: 6px;
+  margin-bottom: 8px;
   padding: 14px 18px;
   font-size: 15px;
   font-weight: 700;
@@ -884,10 +533,6 @@ input::placeholder {
   border-radius: 12px;
   background: #2a2a2a;
   border: 1px solid rgba(255, 255, 255, 0.10);
-}
-
-.now-playing-bar + .player-shell {
-  margin-top: 6px;
 }
 
 .player-shell {
@@ -914,6 +559,141 @@ input::placeholder {
   border-radius: 14px;
   background: #000;
   display: block;
+}
+
+.player-wrapper-overlay {
+  position: relative;
+}
+
+.player-top-overlay {
+  position: absolute;
+  top: 10px;
+  right: 56px;
+  z-index: 6;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: auto;
+}
+
+.player-overlay-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.overlay-dropdown {
+  position: relative;
+}
+
+.overlay-control-btn {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  background: rgba(20, 20, 20, 0.96);
+  color: #fff;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  transition: 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.overlay-control-btn:hover {
+  background: rgba(32, 32, 32, 0.98);
+}
+
+.overlay-control-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.overlay-control-arrow {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.overlay-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 140px;
+  background: rgba(20, 20, 20, 0.985);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.overlay-dropdown.open .overlay-dropdown-menu {
+  display: block;
+}
+
+.overlay-dropdown-menu-episodes {
+  min-width: 320px;
+  max-width: 420px;
+  display: none;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 6px;
+}
+
+.overlay-dropdown.open .overlay-dropdown-menu-episodes {
+  display: grid;
+}
+
+.overlay-dropdown-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 9px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: 0.15s ease;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.overlay-dropdown-item:hover {
+  background: #2a2a2a;
+}
+
+.overlay-dropdown-item.active {
+  background: #363636;
+  color: #7cc3ff;
+}
+
+.overlay-dropdown-item-episode {
+  justify-content: center;
+  text-align: center;
+  padding: 9px 6px;
+  font-weight: 700;
+}
+
+.overlay-item-count {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #434343;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .placeholder {
@@ -1019,11 +799,6 @@ input::placeholder {
   font-variant-numeric: tabular-nums;
 }
 
-.user-status {
-  color: #c7d3f3;
-  font-size: 14px;
-}
-
 .chat-block {
   display: flex;
   flex-direction: column;
@@ -1094,13 +869,11 @@ input::placeholder {
   min-width: 72px;
 }
 
-.cinema-mode .right-sidebar,
-.cinema-mode .room-sidebar {
+.cinema-mode .right-sidebar {
   display: none;
 }
 
-.cinema-mode .room-layout-centered,
-.cinema-mode .room-layout-new {
+.cinema-mode .room-layout-centered {
   grid-template-columns: 1fr;
 }
 
@@ -1127,26 +900,12 @@ input::placeholder {
   background: #4a4a4a;
 }
 
-.selectors-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
-}
-
-.selectors-row .player-dropdown {
-  flex: 1 1 200px;
-  max-width: none;
-}
-
 @media (max-width: 1200px) {
-  .room-layout-centered,
-  .room-layout-new {
+  .room-layout-centered {
     grid-template-columns: 1fr;
   }
 
-  .right-sidebar,
-  .room-sidebar {
+  .right-sidebar {
     border-left: none;
     border-top: 1px solid var(--line);
   }
@@ -1222,31 +981,22 @@ input::placeholder {
     width: fit-content;
   }
 
-  .player-area-centered,
-  .room-main {
+  .player-area-centered {
     padding: 12px;
     gap: 14px;
   }
 
   .center-search-panel,
-  .anime-search-section,
-  .anime-selected-section,
-  .anime-controls-section,
-  .selected-anime-panel,
-  .player-panel,
-  .selector-block-compact,
-  .selector-block-episodes {
+  .selected-anime-panel {
     padding: 14px;
   }
 
-  .search-dropdown,
-  .anime-search-dropdown {
+  .search-dropdown {
     left: 14px;
     right: 14px;
   }
 
-  .center-search-input,
-  .anime-search-input {
+  .center-search-input {
     font-size: 16px;
   }
 
@@ -1254,35 +1004,32 @@ input::placeholder {
     font-size: 22px;
   }
 
-  .episode-tile {
-    min-width: 40px;
-    height: 38px;
-    padding: 0 10px;
-    font-size: 13px;
-  }
-
   .player-wrapper {
     aspect-ratio: 16 / 9;
   }
 
-  .episodes-grid {
-    gap: 6px;
-    max-height: 240px;
-  }
-
   .now-playing-bar {
-    margin-top: 18px;
-    margin-bottom: 18px;
     padding: 12px 14px;
   }
 
-  .selector-block-head {
-    flex-direction: column;
-    align-items: flex-start;
+  .player-top-overlay {
+    top: 8px;
+    right: 44px;
+  }
+
+  .player-overlay-controls {
     gap: 6px;
   }
 
-  .player-dropdown {
-    min-width: 100%;
+  .overlay-control-btn {
+    min-height: 28px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+
+  .overlay-dropdown-menu-episodes {
+    min-width: 250px;
+    max-width: 300px;
+    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
   }
 }
