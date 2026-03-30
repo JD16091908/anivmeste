@@ -76,7 +76,7 @@
 .player-area-centered {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -303,18 +303,12 @@
   font-weight: 700;
 }
 
-.now-playing-bar {
-  padding: 14px 18px;
-  font-size: 15px;
-  font-weight: 700;
-  color: #fff;
-  border-radius: 12px;
-  background: #2a2a2a;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-}
-
 .player-shell {
   width: 100%;
+}
+
+.player-shell-raised {
+  margin-top: -6px;
 }
 
 .player-wrapper {
@@ -343,15 +337,16 @@
   position: relative;
 }
 
+/* КЛЮЧЕВАЯ ПРАВКА ОТ НАЛОЖЕНИЯ */
 .player-top-overlay {
   position: absolute;
   top: 12px;
-  left: 12px;
+  left: 96px;
   z-index: 6;
   display: flex;
   align-items: flex-start;
   pointer-events: auto;
-  max-width: calc(100% - 100px);
+  max-width: calc(100% - 180px);
 }
 
 .player-overlay-controls {
@@ -367,8 +362,8 @@
 
 .overlay-control-btn {
   height: 32px;
-  min-width: 92px;
-  max-width: 118px;
+  min-width: 96px;
+  max-width: 138px;
   border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 6px;
   background: rgba(20, 20, 20, 0.96);
@@ -803,10 +798,11 @@
     border-radius: 14px;
   }
 
+  /* МОБИЛЬНАЯ ПРАВКА ОТ НАЛОЖЕНИЯ */
   .player-top-overlay {
     top: 8px;
-    left: 8px;
-    max-width: calc(100% - 16px);
+    left: 78px;
+    max-width: calc(100% - 96px);
   }
 
   .player-overlay-controls {
@@ -815,7 +811,7 @@
 
   .overlay-control-btn {
     height: 28px;
-    min-width: 78px;
+    min-width: 74px;
     max-width: 96px;
     padding: 0 8px;
     font-size: 11px;
@@ -838,27 +834,5 @@
     bottom: 12px;
     padding: 10px 14px;
     font-size: 13px;
-  }
-}
-.player-shell-raised {
-  margin-top: -6px;
-}
-
-.player-area-centered {
-  gap: 14px;
-}
-.player-overlay-controls {
-  gap: 6px;
-}
-
-.overlay-control-btn {
-  min-width: 96px;
-  max-width: 138px;
-}
-
-@media (max-width: 768px) {
-  .overlay-control-btn {
-    min-width: 74px;
-    max-width: 96px;
   }
 }
