@@ -1,14 +1,23 @@
 const usernameInput = document.getElementById('username');
 const roomIdInput = document.getElementById('roomId');
 
-const savedUsername = localStorage.getItem('username');
+const USERNAME_STORAGE = 'username';
+
+const savedUsername = localStorage.getItem(USERNAME_STORAGE);
 if (savedUsername) {
   usernameInput.value = savedUsername;
 }
 
+function sanitizeUsername(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 30);
+}
+
 function getUsername() {
-  const username = usernameInput.value.trim() || 'Гость';
-  localStorage.setItem('username', username);
+  const username = sanitizeUsername(usernameInput.value) || 'Гость';
+  localStorage.setItem(USERNAME_STORAGE, username);
   return username;
 }
 

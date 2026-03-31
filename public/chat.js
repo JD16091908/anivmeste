@@ -9,21 +9,34 @@ window.ChatModule = (() => {
   function formatMessageWithLinks(text) {
     const escaped = escapeHtml(text);
     const urlRegex = /(https?:\/\/[^\s<]+)/g;
-    return escaped.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #4da6ff; text-decoration: none;">$1</a>');
+    return escaped.replace(
+      urlRegex,
+      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #4da6ff; text-decoration: none;">$1</a>'
+    );
   }
 
-  function scrollToBottom(chatMessages) {
+  function isNearBottom(chatMessages) {
+    if (!chatMessages) return true;
+    const threshold = 80;
+    return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+  }
+
+  function scrollToBottom(chatMessages, force = false) {
     if (!chatMessages) return;
-    setTimeout(() => {
+
+    const shouldScroll = force || isNearBottom(chatMessages);
+    if (!shouldScroll) return;
+
+    requestAnimationFrame(() => {
       chatMessages.scrollTop = chatMessages.scrollHeight;
-    }, 10);
+    });
   }
 
   function appendMessage(chatMessages, { username, message, time, isSelf = false }) {
     if (!chatMessages) return;
 
     const div = document.createElement('div');
-    div.className = `chat-message ${isSelf ? 'self-message' : ''}`;
+    div.className = `chat-message ${isSelf ? 'self self-message' : ''}`;
 
     const header = document.createElement('div');
     header.className = 'chat-message-header';
@@ -63,6 +76,7 @@ window.ChatModule = (() => {
     appendMessage,
     appendSystemMessage,
     clearChat,
-    escapeHtml
+    escapeHtml,
+    scrollToBottom
   };
 })();

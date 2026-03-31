@@ -1,10 +1,54 @@
 const socket = io();
 
 const params = new URLSearchParams(window.location.search);
-const username = params.get('username') || 'Гость';
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
 
 const USER_KEY_STORAGE = 'aniwatch_user_key';
+const USERNAME_STORAGE = 'username';
+
+const RANDOM_NICK_ADJECTIVES = [
+  'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
+  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный'
+];
+
+const RANDOM_NICK_NOUNS = [
+  'Лис', 'Кот', 'Волк', 'Дракон', 'Феникс', 'Енот', 'Тануки', 'Сокол',
+  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай'
+];
+
+function generateRandomNickname() {
+  const adjective = RANDOM_NICK_ADJECTIVES[Math.floor(Math.random() * RANDOM_NICK_ADJECTIVES.length)];
+  const noun = RANDOM_NICK_NOUNS[Math.floor(Math.random() * RANDOM_NICK_NOUNS.length)];
+  const number = Math.floor(10 + Math.random() * 90);
+  return `${adjective} ${noun} ${number}`;
+}
+
+function sanitizeUsername(name) {
+  return String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 30);
+}
+
+function resolveInitialUsername() {
+  const usernameFromQuery = sanitizeUsername(params.get('username'));
+  const savedUsername = sanitizeUsername(localStorage.getItem(USERNAME_STORAGE));
+
+  if (usernameFromQuery) {
+    localStorage.setItem(USERNAME_STORAGE, usernameFromQuery);
+    return usernameFromQuery;
+  }
+
+  if (savedUsername) {
+    return savedUsername;
+  }
+
+  const randomUsername = generateRandomNickname();
+  localStorage.setItem(USERNAME_STORAGE, randomUsername);
+  return randomUsername;
+}
+
+let username = resolveInitialUsername();
 
 function getOrCreateUserKey() {
   let key = localStorage.getItem(USER_KEY_STORAGE);
@@ -38,6 +82,7 @@ let isOverlayEpisodeOpen = false;
 
 let lastSeriesChatMessage = '';
 let lastSeriesChatMessageAt = 0;
+let lastSentSeekAt = 0;
 
 let currentState = {
   animeId: null,
@@ -68,6 +113,8 @@ const sendBtn = document.getElementById('sendBtn');
 const searchStatus = document.getElementById('searchStatus');
 const selectedAnimeInfo = document.getElementById('selectedAnimeInfo');
 const hostSearchHint = document.getElementById('hostSearchHint');
+const nicknameInput = document.getElementById('nicknameInput');
+const saveNicknameBtn = document.getElementById('saveNicknameBtn');
 
 const playerTopOverlay = document.getElementById('playerTopOverlay');
 
@@ -91,7 +138,20 @@ if (roomTitle) {
   roomTitle.textContent = roomId === 'solo' ? 'Одиночный просмотр' : `Комната: ${roomId}`;
 }
 
+if (nicknameInput) {
+  nicknameInput.value = username;
+}
+
 const canControl = () => roomId === 'solo' || isHost;
+
+function getMoscowTimeString() {
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(new Date());
+}
 
 function sys(text) {
   console.log('[sys]', text);
@@ -537,7 +597,7 @@ function startHostTimers() {
   kodikTimeRequestTimer = setInterval(() => {
     if (!isHost || !currentState.embedUrl) return;
     requestKodikTime();
-  }, 2000);
+  }, 2500);
 
   hostTimeBroadcastTimer = setInterval(() => {
     if (!isHost || roomId === 'solo') return;
@@ -550,7 +610,7 @@ function startHostTimers() {
         currentTime: ct
       });
     }
-  }, 2500);
+  }, 3500);
 }
 
 function stopHostTimers() {
@@ -582,7 +642,7 @@ function startUserTimeTimer() {
         currentTime: ct
       });
     }
-  }, 2000);
+  }, 4000);
 }
 
 function stopUserTimeTimer() {
@@ -1011,6 +1071,29 @@ async function selectAnime(itemOrAnimeUrl) {
   }
 }
 
+function saveNickname() {
+  const newUsername = sanitizeUsername(nicknameInput?.value);
+
+  if (!newUsername) {
+    alert('Введите ник');
+    return;
+  }
+
+  const oldUsername = username;
+  username = newUsername;
+  localStorage.setItem(USERNAME_STORAGE, username);
+
+  if (nicknameInput) {
+    nicknameInput.value = username;
+  }
+
+  if (roomId !== 'solo') {
+    socket.emit('change-username', { roomId, username });
+  } else if (oldUsername !== username) {
+    sys(`Теперь вы ${username}`);
+  }
+}
+
 window.addEventListener('pointerdown', () => {
   userInteractedWithPlayer = true;
 });
@@ -1109,6 +1192,10 @@ window.addEventListener('message', (event) => {
       if (key === 'kodik_player_seek') {
         const seekTime = Number(value?.time);
         if (!Number.isNaN(seekTime) && seekTime >= 0) {
+          const now = Date.now();
+          if (now - lastSentSeekAt < 500) return;
+          lastSentSeekAt = now;
+
           currentState.playback.currentTime = seekTime;
           currentState.playback.updatedAt = Date.now();
 
@@ -1221,7 +1308,9 @@ socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
   if (roomId === 'solo' || isHost) return;
 
   const safeTime = typeof currentTime === 'number' && !Number.isNaN(currentTime)
-    ? currentTime
+    ? currentState.playback.currentTime !== null && Math.abs(currentState.playback.currentTime - currentTime) < 0.4
+      ? currentState.playback.currentTime
+      : currentTime
     : currentState.playback.currentTime;
 
   currentState.playback = {
@@ -1238,9 +1327,14 @@ socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
 socket.on('room-users', renderUsers);
 socket.on('system-message', ({ text }) => sys(text));
 
-socket.on('chat-message', ({ username, message, time }) => {
+socket.on('chat-message', ({ username: author, message, time }) => {
   if (!chatMessages || !window.ChatModule) return;
-  ChatModule.appendMessage(chatMessages, { username, message, time });
+  ChatModule.appendMessage(chatMessages, {
+    username: author,
+    message,
+    time,
+    isSelf: author === username
+  });
 });
 
 if (searchInput) {
@@ -1259,7 +1353,7 @@ if (searchInput) {
 
 if (copyLinkBtn) {
   copyLinkBtn.addEventListener('click', async () => {
-    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(roomId)}?username=${encodeURIComponent(username)}`;
+    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(roomId)}`;
 
     try {
       await navigator.clipboard.writeText(inviteUrl);
@@ -1276,6 +1370,16 @@ if (cinemaModeBtn) {
   });
 }
 
+if (saveNicknameBtn) {
+  saveNicknameBtn.addEventListener('click', saveNickname);
+}
+
+if (nicknameInput) {
+  nicknameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') saveNickname();
+  });
+}
+
 if (sendBtn && chatInput) {
   sendBtn.addEventListener('click', () => {
     const message = chatInput.value.trim();
@@ -1287,11 +1391,13 @@ if (sendBtn && chatInput) {
       ChatModule.appendMessage(chatMessages, {
         username,
         message,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        time: getMoscowTimeString(),
+        isSelf: true
       });
     }
 
     chatInput.value = '';
+    chatInput.focus();
   });
 
   chatInput.addEventListener('keydown', (e) => {

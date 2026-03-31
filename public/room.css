@@ -89,7 +89,9 @@
   position: sticky;
   top: 12px;
   height: calc(100vh - 96px);
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .center-search-panel,
@@ -338,7 +340,6 @@
   position: relative;
 }
 
-/* ВОЗВРАТ К БОЛЕЕ АККУРАТНОМУ ВИДУ */
 .player-top-overlay {
   position: absolute;
   top: 10px;
@@ -514,6 +515,7 @@
 
 .block {
   margin-bottom: 16px;
+  min-height: 0;
 }
 
 .block h2 {
@@ -529,6 +531,47 @@
   color: #aebad6;
   font-size: 14px;
   text-align: center;
+}
+
+.nickname-panel {
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nickname-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #dbe7ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.nickname-row {
+  display: flex;
+  gap: 8px;
+}
+
+.nickname-input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border: none;
+  outline: none;
+  border-radius: 12px;
+  background: var(--room-input);
+  color: #fff;
+}
+
+.nickname-input::placeholder {
+  color: #9fb0d3;
+}
+
+.nickname-save-btn {
+  min-width: 100px;
 }
 
 .users-list {
@@ -591,14 +634,17 @@
 .chat-block {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 260px);
+  flex: 1;
+  min-height: 0;
 }
 
 .chat-messages {
   flex: 1;
-  min-height: 280px;
-  max-height: none;
+  min-height: 220px;
+  height: 100%;
+  max-height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -618,7 +664,8 @@
   background: #243250;
 }
 
-.chat-message.self {
+.chat-message.self,
+.chat-message.self-message {
   background: #3b2b6b;
 }
 
@@ -628,15 +675,31 @@
   font-style: italic;
 }
 
-.chat-meta {
-  font-size: 12px;
+.chat-message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.chat-time {
   color: #aebad6;
-  margin-bottom: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-message-body {
+  color: #fff;
+  line-height: 1.45;
 }
 
 .chat-input-box {
   display: flex;
   gap: 8px;
+  margin-top: auto;
 }
 
 .chat-input-box input {
@@ -725,6 +788,11 @@
   .player-wrapper {
     width: 100%;
   }
+
+  .chat-messages {
+    height: 320px;
+    max-height: 320px;
+  }
 }
 
 @media (max-width: 900px) {
@@ -760,6 +828,14 @@
   }
 
   #sendBtn {
+    width: 100%;
+  }
+
+  .nickname-row {
+    flex-direction: column;
+  }
+
+  .nickname-save-btn {
     width: 100%;
   }
 
@@ -832,5 +908,11 @@
   .overlay-dropdown-item-episode {
     min-height: 30px;
     font-size: 11px;
+  }
+
+  .chat-messages {
+    min-height: 260px;
+    height: 260px;
+    max-height: 260px;
   }
 }

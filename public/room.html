@@ -99,6 +99,22 @@
         <section class="block">
           <h2>Участники</h2>
           <div class="users-caption">Справа у каждого показывается текущее время просмотра</div>
+
+          <div class="nickname-panel">
+            <label class="nickname-label" for="nicknameInput">Ваш ник</label>
+            <div class="nickname-row">
+              <input
+                type="text"
+                id="nicknameInput"
+                class="nickname-input"
+                maxlength="30"
+                placeholder="Введите ник"
+                autocomplete="nickname"
+              />
+              <button id="saveNicknameBtn" class="btn btn-primary nickname-save-btn" type="button">Сохранить</button>
+            </div>
+          </div>
+
           <div id="usersList" class="users-list"></div>
         </section>
 

@@ -8,7 +8,11 @@ const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 20000
+});
 
 const PORT = process.env.PORT || 3000;
 const rooms = {};
@@ -741,7 +745,28 @@ function getUsersWithMeta(roomId) {
   }));
 }
 
+function formatMoscowTime() {
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Europe/Moscow',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(new Date());
+}
+
+function sanitizeUsername(name) {
+  const cleaned = String(name || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 30);
+
+  return cleaned || 'Гость';
+}
+
 io.on('connection', (socket) => {
+  socket.data.lastSeekEmitAt = 0;
+  socket.data.lastUserTimeEmitAt = 0;
+
   socket.on('join-room', ({ roomId, username, userKey }) => {
     if (!roomId || !userKey) return;
 
@@ -749,7 +774,7 @@ io.on('connection', (socket) => {
 
     socket.join(roomId);
     socket.data.roomId = roomId;
-    socket.data.username = username || 'Гость';
+    socket.data.username = sanitizeUsername(username);
     socket.data.userKey = userKey;
 
     room.users = room.users.filter(u => u.id !== socket.id);
@@ -783,6 +808,26 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
     socket.to(roomId).emit('system-message', {
       text: `${socket.data.username} присоединился к комнате`
+    });
+  });
+
+  socket.on('change-username', ({ roomId, username }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    const newUsername = sanitizeUsername(username);
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user) return;
+
+    const oldUsername = user.username;
+    if (oldUsername === newUsername) return;
+
+    user.username = newUsername;
+    socket.data.username = newUsername;
+
+    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
+    io.to(roomId).emit('system-message', {
+      text: `${oldUsername} теперь ${newUsername}`
     });
   });
 
@@ -829,6 +874,12 @@ io.on('connection', (socket) => {
       };
     }
 
+    if (action === 'seek') {
+      const now = Date.now();
+      if (now - socket.data.lastSeekEmitAt < 400) return;
+      socket.data.lastSeekEmitAt = now;
+    }
+
     if (action === 'play') {
       room.videoState.playback.paused = false;
       if (safeTime !== null && safeTime > 0.5) room.videoState.playback.currentTime = safeTime;
@@ -861,6 +912,10 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) return;
 
+    const now = Date.now();
+    if (now - socket.data.lastUserTimeEmitAt < 3500) return;
+    socket.data.lastUserTimeEmitAt = now;
+
     const safeTime = typeof currentTime === 'number' && !Number.isNaN(currentTime) && currentTime >= 0
       ? currentTime
       : null;
@@ -869,7 +924,7 @@ io.on('connection', (socket) => {
     if (!user) return;
 
     user.currentTime = safeTime;
-    user.timeUpdatedAt = Date.now();
+    user.timeUpdatedAt = now;
 
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
   });
@@ -877,13 +932,13 @@ io.on('connection', (socket) => {
   socket.on('chat-message', ({ roomId, username, message }) => {
     if (!roomId || !message?.trim()) return;
 
+    const safeMessage = String(message).trim().slice(0, 300);
+    const safeUsername = sanitizeUsername(username || socket.data.username || 'Гость');
+
     io.to(roomId).emit('chat-message', {
-      username: username || 'Гость',
-      message: message.trim(),
-      time: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit'
-      })
+      username: safeUsername,
+      message: safeMessage,
+      time: formatMoscowTime()
     });
   });
 
@@ -898,6 +953,12 @@ io.on('connection', (socket) => {
 
     if (room.creatorSocketId === socket.id) {
       room.creatorSocketId = null;
+
+      const possibleHost = room.users.find(u => u.userKey === room.creatorUserKey);
+      if (possibleHost) {
+        room.creatorSocketId = possibleHost.id;
+        io.to(possibleHost.id).emit('you-are-host');
+      }
     }
 
     if (room.users.length > 0) {
