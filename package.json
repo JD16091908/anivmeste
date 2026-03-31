@@ -1,7 +1,7 @@
 {
   "name": "anivmeste",
   "version": "1.0.0",
-  "description": "Сайт для совместного и соло просмотра аниме",
+  "description": "Anivmeste — сайт для совместного и соло просмотра аниме",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
