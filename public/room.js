@@ -3,10 +3,10 @@ const socket = io();
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
 
-const USER_KEY_STORAGE = 'aniwatch_user_key';
+const USER_KEY_STORAGE = 'anivmeste_user_key';
 const USERNAME_STORAGE = 'username';
 const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
-const RECENT_RANDOM_NICKS_STORAGE = 'aniwatch_recent_random_nicks';
+const RECENT_RANDOM_NICKS_STORAGE = 'anivmeste_recent_random_nicks';
 
 const RANDOM_NICK_ADJECTIVES = [
   'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
