@@ -5,23 +5,20 @@ const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] ||
 
 const USER_KEY_STORAGE = 'aniwatch_user_key';
 const USERNAME_STORAGE = 'username';
+const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
+const RECENT_RANDOM_NICKS_STORAGE = 'aniwatch_recent_random_nicks';
 
 const RANDOM_NICK_ADJECTIVES = [
   'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
-  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный'
+  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный',
+  'Пухленький', 'Глупенький', 'Крутой', 'Няшный', 'Вафельный'
 ];
 
 const RANDOM_NICK_NOUNS = [
   'Лис', 'Кот', 'Волк', 'Дракон', 'Феникс', 'Енот', 'Тануки', 'Сокол',
-  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай'
+  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай',
+  'Руслан', 'Марат', 'Альберт'
 ];
-
-function generateRandomNickname() {
-  const adjective = RANDOM_NICK_ADJECTIVES[Math.floor(Math.random() * RANDOM_NICK_ADJECTIVES.length)];
-  const noun = RANDOM_NICK_NOUNS[Math.floor(Math.random() * RANDOM_NICK_NOUNS.length)];
-  const number = Math.floor(10 + Math.random() * 90);
-  return `${adjective} ${noun} ${number}`;
-}
 
 function sanitizeUsername(name) {
   return String(name || '')
@@ -30,16 +27,82 @@ function sanitizeUsername(name) {
     .slice(0, 30);
 }
 
+function getRecentRandomNickHistory() {
+  try {
+    const raw = localStorage.getItem(RECENT_RANDOM_NICKS_STORAGE);
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed.map(item => String(item)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentRandomNickHistory(history) {
+  try {
+    const safeHistory = Array.isArray(history) ? history.slice(-8) : [];
+    localStorage.setItem(RECENT_RANDOM_NICKS_STORAGE, JSON.stringify(safeHistory));
+  } catch {}
+}
+
+function buildAllNicknameVariants() {
+  const variants = [];
+
+  for (const adjective of RANDOM_NICK_ADJECTIVES) {
+    for (const noun of RANDOM_NICK_NOUNS) {
+      variants.push(`${adjective} ${noun}`);
+    }
+  }
+
+  return variants;
+}
+
+function pickRandomItem(items) {
+  if (!Array.isArray(items) || !items.length) return null;
+  return items[Math.floor(Math.random() * items.length)] || null;
+}
+
+function generateRandomNickname() {
+  const allVariants = buildAllNicknameVariants();
+  if (!allVariants.length) return 'Гость';
+
+  const recentHistory = getRecentRandomNickHistory();
+  const lastNickname = recentHistory[recentHistory.length - 1] || '';
+
+  let available = allVariants.filter(nick => !recentHistory.includes(nick));
+
+  if (!available.length) {
+    available = allVariants.filter(nick => nick !== lastNickname);
+  }
+
+  if (!available.length) {
+    available = [...allVariants];
+  }
+
+  let nickname = pickRandomItem(available) || 'Гость';
+
+  if (nickname === lastNickname && allVariants.length > 1) {
+    const withoutLast = allVariants.filter(nick => nick !== lastNickname);
+    nickname = pickRandomItem(withoutLast) || nickname;
+  }
+
+  const nextHistory = [...recentHistory, nickname].slice(-8);
+  saveRecentRandomNickHistory(nextHistory);
+
+  return nickname;
+}
+
 function resolveInitialUsername() {
   const usernameFromQuery = sanitizeUsername(params.get('username'));
   const savedUsername = sanitizeUsername(localStorage.getItem(USERNAME_STORAGE));
+  const hasManualUsername = localStorage.getItem(MANUAL_USERNAME_STORAGE) === '1';
 
   if (usernameFromQuery) {
     localStorage.setItem(USERNAME_STORAGE, usernameFromQuery);
+    localStorage.setItem(MANUAL_USERNAME_STORAGE, '1');
     return usernameFromQuery;
   }
 
-  if (savedUsername) {
+  if (hasManualUsername && savedUsername) {
     return savedUsername;
   }
 
@@ -1082,6 +1145,7 @@ function saveNickname() {
   const oldUsername = username;
   username = newUsername;
   localStorage.setItem(USERNAME_STORAGE, username);
+  localStorage.setItem(MANUAL_USERNAME_STORAGE, '1');
 
   if (nicknameInput) {
     nicknameInput.value = username;
