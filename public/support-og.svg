@@ -1,0 +1,20 @@
+<svg viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#09101d" />
+      <stop offset="100%" stop-color="#0d1527" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7bb4ff" />
+      <stop offset="50%" stop-color="#9180ff" />
+      <stop offset="100%" stop-color="#ff84a8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+
+  <text x="600" y="260" font-family="Inter, system-ui, sans-serif" font-size="72" font-weight="900" fill="white" text-anchor="middle">Поддержка проекта</text>
+  <text x="600" y="350" font-family="Inter, system-ui, sans-serif" font-size="28" fill="#dbe7ff" text-anchor="middle">Anivmeste — совместный просмотр аниме</text>
+
+  <rect x="440" y="410" width="320" height="80" rx="24" fill="url(#brand)" opacity="0.12" />
+</svg>
