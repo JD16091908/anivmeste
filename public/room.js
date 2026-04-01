@@ -1,7 +1,9 @@
 const socket = io();
 
-const BOOSTY_URL = 'https://boosty.to/anivmeste/donate';
-const DONATIONALERTS_URL = 'https://www.donationalerts.com/r/anivmeste';
+const CONFIG = window.AnivmesteConfig || {};
+const SUPPORT_CONFIG = CONFIG.support || {};
+const BOOSTY_URL = SUPPORT_CONFIG.boostyUrl || '#';
+const DONATIONALERTS_URL = SUPPORT_CONFIG.donationAlertsUrl || '#';
 
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
@@ -213,8 +215,50 @@ const overlayPlayerMenu = document.getElementById('overlayPlayerMenu');
 const overlaySeasonMenu = document.getElementById('overlaySeasonMenu');
 const overlayEpisodeMenu = document.getElementById('overlayEpisodeMenu');
 
+const roomSupportModal = document.getElementById('roomSupportModal');
+const roomSupportModalBackdrop = document.getElementById('roomSupportModalBackdrop');
+const closeRoomSupportModalBtn = document.getElementById('closeRoomSupportModalBtn');
+const roomSupportDescription = document.getElementById('roomSupportDescription');
+const roomSupportThanks = document.getElementById('roomSupportThanks');
+const roomSupportBoostyLink = document.getElementById('roomSupportBoostyLink');
+const roomSupportDonationAlertsLink = document.getElementById('roomSupportDonationAlertsLink');
+
 if (nicknameInput) {
   nicknameInput.value = username;
+}
+
+if (roomSupportDescription) {
+  roomSupportDescription.textContent = SUPPORT_CONFIG.description || '';
+}
+if (roomSupportThanks) {
+  roomSupportThanks.textContent = SUPPORT_CONFIG.thanksText || '';
+}
+if (roomSupportBoostyLink) {
+  roomSupportBoostyLink.href = BOOSTY_URL;
+}
+if (roomSupportDonationAlertsLink) {
+  roomSupportDonationAlertsLink.href = DONATIONALERTS_URL;
+}
+
+function openRoomSupportModal() {
+  if (!roomSupportModal) return;
+  roomSupportModal.classList.remove('hidden', 'is-hiding');
+  roomSupportModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('modal-open');
+  requestAnimationFrame(() => roomSupportModal.classList.add('is-visible'));
+}
+
+function closeRoomSupportModal() {
+  if (!roomSupportModal || roomSupportModal.classList.contains('hidden')) return;
+  roomSupportModal.classList.remove('is-visible');
+  roomSupportModal.classList.add('is-hiding');
+
+  setTimeout(() => {
+    roomSupportModal.classList.add('hidden');
+    roomSupportModal.classList.remove('is-hiding');
+    roomSupportModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+  }, 220);
 }
 
 const canControl = () => roomId === 'solo' || isHost;
@@ -1413,14 +1457,17 @@ if (cinemaModeBtn) {
 }
 
 if (supportRoomBtn) {
-  supportRoomBtn.addEventListener('click', () => {
-    const choice = window.confirm(
-      'Открыть Boosty?\n\nНажми "ОК" для Boosty или "Отмена" для DonationAlerts.'
-    );
-
-    window.open(choice ? BOOSTY_URL : DONATIONALERTS_URL, '_blank', 'noopener,noreferrer');
-  });
+  supportRoomBtn.addEventListener('click', openRoomSupportModal);
 }
+
+roomSupportModalBackdrop?.addEventListener('click', closeRoomSupportModal);
+closeRoomSupportModalBtn?.addEventListener('click', closeRoomSupportModal);
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && roomSupportModal && !roomSupportModal.classList.contains('hidden')) {
+    closeRoomSupportModal();
+  }
+});
 
 if (saveNicknameBtn) {
   saveNicknameBtn.addEventListener('click', saveNickname);

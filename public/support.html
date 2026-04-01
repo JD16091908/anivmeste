@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Поддержка проекта — Anivmeste</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="main-page">
+    <header class="site-header reveal reveal-1">
+      <div class="site-header-inner">
+        <a href="/" class="site-brand" aria-label="Anivmeste">
+          <img src="/logo.svg" alt="Anivmeste" class="site-brand-logo" />
+        </a>
+      </div>
+    </header>
+
+    <section class="main-hero">
+      <div class="main-card reveal reveal-2">
+        <div class="main-card-badge brand-badge">
+          <span class="brand-chip">Поддержка проекта</span>
+        </div>
+
+        <h1 class="main-title" style="font-size: clamp(34px, 5vw, 52px);">Спасибо за поддержку</h1>
+        <p class="main-subtitle" id="supportPageDescription">
+          Если тебе нравится Anivmeste и ты хочешь помочь развитию сервиса, можешь поддержать проект удобным способом.
+        </p>
+
+        <div class="support-grid">
+          <a
+            class="support-card support-card-boosty"
+            id="supportPageBoostyLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            <div class="support-card-head">
+              <div class="support-card-icon">B</div>
+              <div class="support-card-title-wrap">
+                <h3>Boosty</h3>
+                <p>Подписка или разовая поддержка</p>
+              </div>
+            </div>
+            <div class="support-card-action">Открыть Boosty</div>
+          </a>
+
+          <a
+            class="support-card support-card-da"
+            id="supportPageDonationAlertsLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+          >
+            <div class="support-card-head">
+              <div class="support-card-icon">₽</div>
+              <div class="support-card-title-wrap">
+                <h3>DonationAlerts</h3>
+                <p>Быстрый разовый донат</p>
+              </div>
+            </div>
+            <div class="support-card-action">Открыть DonationAlerts</div>
+          </a>
+        </div>
+
+        <div class="about-modal-section" style="margin-top: 28px;">
+          <h2 style="margin-bottom: 14px;">Зачем нужна поддержка</h2>
+          <div class="about-modal-card" id="supportPageThanks"></div>
+        </div>
+
+        <div class="about-modal-section" style="margin-top: 20px;">
+          <a href="/" class="about-modal-link-btn">Вернуться на главную</a>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    const config = window.AnivmesteConfig || {};
+    const support = config.support || {};
+
+    const descriptionEl = document.getElementById('supportPageDescription');
+    const thanksEl = document.getElementById('supportPageThanks');
+    const boostyLink = document.getElementById('supportPageBoostyLink');
+    const donationAlertsLink = document.getElementById('supportPageDonationAlertsLink');
+
+    if (descriptionEl) {
+      descriptionEl.textContent = support.description || descriptionEl.textContent;
+    }
+
+    if (thanksEl) {
+      thanksEl.textContent = support.thanksText || '';
+    }
+
+    if (boostyLink) {
+      boostyLink.href = support.boostyUrl || '#';
+    }
+
+    if (donationAlertsLink) {
+      donationAlertsLink.href = support.donationAlertsUrl || '#';
+    }
+
+    document.querySelectorAll('.reveal').forEach((el, index) => {
+      setTimeout(() => el.classList.add('is-visible'), 80 + index * 100);
+    });
+  </script>
+</body>
+</html>

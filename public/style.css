@@ -382,6 +382,15 @@ input {
   background: rgba(24, 29, 43, 0.98);
 }
 
+.thanks-service-btn {
+  background: rgba(14, 21, 32, 0.92);
+  color: #d9e5ff;
+}
+
+.thanks-service-btn:hover {
+  background: rgba(22, 31, 45, 0.96);
+}
+
 .about-service-icon {
   flex-shrink: 0;
   width: 24px;
@@ -401,6 +410,10 @@ input {
 .support-service-icon {
   background: linear-gradient(135deg, #9180ff 0%, #ff84a8 100%);
   box-shadow: 0 2px 10px rgba(255, 132, 168, 0.28);
+}
+
+.thanks-service-icon {
+  background: linear-gradient(135deg, #7bb4ff 0%, #9f8cff 100%);
 }
 
 .modal-open {
@@ -585,11 +598,13 @@ input {
   flex-shrink: 0;
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
   padding: 0 24px 24px;
   background: #181818;
 }
 
-.about-modal-close-btn {
+.about-modal-close-btn,
+.about-modal-link-btn {
   min-width: 88px;
   height: 42px;
   padding: 0 18px;
@@ -601,9 +616,18 @@ input {
   font-weight: 700;
   cursor: pointer;
   transition: 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.about-modal-close-btn:hover {
+.about-modal-link-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.about-modal-close-btn:hover,
+.about-modal-link-btn:hover {
   background: #444444;
 }
 
@@ -730,10 +754,6 @@ input {
     width: 192px;
   }
 
-  .brand-logo-image {
-    width: 204px;
-  }
-
   .main-card {
     padding: 18px;
     border-radius: 22px;
@@ -805,6 +825,7 @@ input {
   .about-modal-actions {
     padding: 14px 18px 18px;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
+    flex-wrap: wrap;
   }
 
   .about-modal-section h2 {

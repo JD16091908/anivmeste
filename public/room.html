@@ -31,6 +31,7 @@
 
       <div class="top-actions">
         <button id="supportRoomBtn" class="small-btn room-support-btn" type="button">Поддержать проект</button>
+        <a href="/support" class="small-btn room-thanks-btn">Спасибо</a>
         <span id="hostBadge" class="host-badge">Загрузка...</span>
         <button id="cinemaModeBtn" class="small-btn" type="button">Режим кинотеатра</button>
       </div>
@@ -149,6 +150,75 @@
     </div>
   </div>
 
+  <div id="roomSupportModal" class="about-modal hidden" aria-hidden="true">
+    <div class="about-modal-backdrop" id="roomSupportModalBackdrop"></div>
+
+    <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="roomSupportModalTitle">
+      <div class="about-modal-header">
+        <div class="about-modal-brand">
+          <img src="/logo.svg" alt="Anivmeste" class="about-modal-logo" />
+        </div>
+      </div>
+
+      <div class="about-modal-content">
+        <section class="about-modal-section">
+          <h2 id="roomSupportModalTitle">Поддержка проекта</h2>
+          <div class="about-modal-card" id="roomSupportDescription"></div>
+        </section>
+
+        <section class="about-modal-section">
+          <h2>Способы поддержки</h2>
+          <div class="support-grid">
+            <a
+              class="support-card support-card-boosty"
+              id="roomSupportBoostyLink"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              <div class="support-card-head">
+                <div class="support-card-icon">B</div>
+                <div class="support-card-title-wrap">
+                  <h3>Boosty</h3>
+                  <p>Подписка или разовая поддержка</p>
+                </div>
+              </div>
+              <div class="support-card-action">Открыть Boosty</div>
+            </a>
+
+            <a
+              class="support-card support-card-da"
+              id="roomSupportDonationAlertsLink"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              <div class="support-card-head">
+                <div class="support-card-icon">₽</div>
+                <div class="support-card-title-wrap">
+                  <h3>DonationAlerts</h3>
+                  <p>Быстрый разовый донат</p>
+                </div>
+              </div>
+              <div class="support-card-action">Открыть DonationAlerts</div>
+            </a>
+          </div>
+        </section>
+
+        <section class="about-modal-section">
+          <h2>Спасибо</h2>
+          <div class="about-modal-card" id="roomSupportThanks"></div>
+        </section>
+      </div>
+
+      <div class="about-modal-actions">
+        <a href="/support" class="about-modal-link-btn">Подробнее</a>
+        <button id="closeRoomSupportModalBtn" class="about-modal-close-btn" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/config.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/player.js"></script>
   <script src="/chat.js"></script>

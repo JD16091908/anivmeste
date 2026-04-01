@@ -1,8 +1,10 @@
 const USERNAME_STORAGE = 'username';
 const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
 
-const BOOSTY_URL = 'https://boosty.to/anivmeste/donate';
-const DONATIONALERTS_URL = 'https://www.donationalerts.com/r/anivmeste';
+const CONFIG = window.AnivmesteConfig || {};
+const SUPPORT_CONFIG = CONFIG.support || {};
+const BOOSTY_URL = SUPPORT_CONFIG.boostyUrl || '#';
+const DONATIONALERTS_URL = SUPPORT_CONFIG.donationAlertsUrl || '#';
 
 const RANDOM_NICK_ADJECTIVES = [
   'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
@@ -148,6 +150,29 @@ function setupModal({
   return { modal, open, close };
 }
 
+function setupSupportContent() {
+  const description = document.getElementById('supportModalDescription');
+  const thanks = document.getElementById('supportModalThanks');
+  const boostyLink = document.getElementById('supportBoostyLink');
+  const donationAlertsLink = document.getElementById('supportDonationAlertsLink');
+
+  if (description) {
+    description.textContent = SUPPORT_CONFIG.description || '';
+  }
+
+  if (thanks) {
+    thanks.textContent = SUPPORT_CONFIG.thanksText || '';
+  }
+
+  if (boostyLink) {
+    boostyLink.href = BOOSTY_URL;
+  }
+
+  if (donationAlertsLink) {
+    donationAlertsLink.href = DONATIONALERTS_URL;
+  }
+}
+
 function setupHomeActions() {
   const usernameInput = document.getElementById('username');
   const roomIdInput = document.getElementById('roomId');
@@ -210,20 +235,10 @@ function setupHomeActions() {
   });
 }
 
-function setupSupportLinks() {
-  document.querySelectorAll('a[href]').forEach((link) => {
-    const href = link.getAttribute('href') || '';
-    if (href === BOOSTY_URL || href === DONATIONALERTS_URL) {
-      link.setAttribute('target', '_blank');
-      link.setAttribute('rel', 'noopener noreferrer nofollow');
-    }
-  });
-}
-
 function init() {
   setupRevealAnimations();
+  setupSupportContent();
   setupHomeActions();
-  setupSupportLinks();
 
   const aboutModalApi = setupModal({
     modalId: 'aboutModal',
@@ -242,8 +257,8 @@ function init() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    const aboutModal = aboutModalApi?.modal;
     const supportModal = supportModalApi?.modal;
+    const aboutModal = aboutModalApi?.modal;
 
     if (supportModal && !supportModal.classList.contains('hidden')) {
       supportModalApi.close();

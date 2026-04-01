@@ -122,6 +122,11 @@
       <span class="about-service-icon support-service-icon" aria-hidden="true">♥</span>
       <span>Поддержать проект</span>
     </button>
+
+    <a href="/support" class="about-service-btn thanks-service-btn">
+      <span class="about-service-icon thanks-service-icon" aria-hidden="true">✦</span>
+      <span>Спасибо за поддержку</span>
+    </a>
   </div>
 
   <div id="aboutModal" class="about-modal hidden" aria-hidden="true">
@@ -187,11 +192,7 @@
       <div class="about-modal-content">
         <section class="about-modal-section">
           <h2 id="supportModalTitle">Поддержка проекта</h2>
-          <div class="about-modal-card">
-            Если тебе нравится <strong>Anivmeste</strong> и ты хочешь помочь развитию сервиса,
-            можешь поддержать проект удобным способом.
-            Поддержка полностью добровольная и не является обязательной для использования сайта.
-          </div>
+          <div class="about-modal-card" id="supportModalDescription"></div>
         </section>
 
         <section class="about-modal-section">
@@ -200,7 +201,8 @@
           <div class="support-grid">
             <a
               class="support-card support-card-boosty"
-              href="https://boosty.to/anivmeste/donate"
+              id="supportBoostyLink"
+              href="#"
               target="_blank"
               rel="noopener noreferrer nofollow"
             >
@@ -216,7 +218,8 @@
 
             <a
               class="support-card support-card-da"
-              href="https://www.donationalerts.com/r/anivmeste"
+              id="supportDonationAlertsLink"
+              href="#"
               target="_blank"
               rel="noopener noreferrer nofollow"
             >
@@ -234,18 +237,18 @@
 
         <section class="about-modal-section">
           <h2>Спасибо</h2>
-          <div class="about-modal-card">
-            Любая поддержка помогает оплачивать инфраструктуру, дорабатывать интерфейс и развивать новые функции сервиса.
-          </div>
+          <div class="about-modal-card" id="supportModalThanks"></div>
         </section>
       </div>
 
       <div class="about-modal-actions">
+        <a href="/support" class="about-modal-link-btn">Подробнее</a>
         <button id="closeSupportModalBtn" class="about-modal-close-btn" type="button">OK</button>
       </div>
     </div>
   </div>
 
+  <script src="/config.js"></script>
   <script src="/main.js"></script>
 </body>
 </html>
