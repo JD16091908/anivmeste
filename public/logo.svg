@@ -1,37 +1,44 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 86" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" fill="none">
   <defs>
-    <linearGradient id="logoStroke" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="brandGradient" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#7BB4FF"/>
-      <stop offset="52%" stop-color="#8F7CFF"/>
-      <stop offset="100%" stop-color="#FF7FA4"/>
+      <stop offset="48%" stop-color="#8D7FFF"/>
+      <stop offset="100%" stop-color="#FF84A8"/>
     </linearGradient>
 
-    <linearGradient id="logoFill" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#76B6FF"/>
-      <stop offset="48%" stop-color="#8D80FF"/>
-      <stop offset="100%" stop-color="#F68AAE"/>
+    <linearGradient id="brandGradientSoft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#77B4FF"/>
+      <stop offset="52%" stop-color="#9280FF"/>
+      <stop offset="100%" stop-color="#F58CB0"/>
     </linearGradient>
 
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+    <clipPath id="vmesteClip">
+      <rect x="206" y="0" width="320" height="96" rx="0"/>
+    </clipPath>
   </defs>
 
   <!-- icon -->
-  <g transform="translate(3,3)">
-    <rect x="0" y="0" width="72" height="72" rx="22" fill="#11182B" stroke="url(#logoStroke)" stroke-width="5"/>
-    <rect x="18" y="18" width="8" height="36" rx="4" fill="url(#logoFill)"/>
-    <path d="M35 25.5C35 21.3414 39.6371 18.8559 43.1098 21.1515L53.7117 28.1604C56.8561 30.2393 56.8561 34.7607 53.7117 36.8396L43.1098 43.8485C39.6371 46.1441 35 43.6586 35 39.5V25.5Z" fill="url(#logoFill)"/>
-    <circle cx="53.5" cy="54.5" r="4.5" fill="#EEF4FF" opacity="0.92"/>
+  <g transform="translate(4,8)">
+    <rect x="0" y="0" width="78" height="78" rx="24" fill="#11192E" stroke="url(#brandGradient)" stroke-width="5"/>
+    <rect x="18" y="18" width="10" height="42" rx="5" fill="url(#brandGradientSoft)"/>
+    <path d="M39 27.2063C39 22.6588 44.0161 19.9076 47.8664 22.4682L60.7708 31.0534C64.2388 33.3598 64.2388 38.4527 60.7708 40.759L47.8664 49.3443C44.0161 51.9049 39 49.1536 39 44.6062V27.2063Z" fill="url(#brandGradientSoft)"/>
   </g>
 
-  <!-- text -->
-  <g transform="translate(92,0)">
-    <text x="0" y="57" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="#FFFFFF" letter-spacing="-2.2">Ani</text>
-    <text x="86" y="57" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="url(#logoFill)" letter-spacing="-2">vmeste</text>
+  <!-- full word in white -->
+  <text x="106" y="66"
+        font-family="Inter, Arial, sans-serif"
+        font-size="60"
+        font-weight="900"
+        fill="#FFFFFF"
+        letter-spacing="-2.2">Anivmeste</text>
+
+  <!-- overlay gradient only on vmeste part -->
+  <g clip-path="url(#vmesteClip)">
+    <text x="106" y="66"
+          font-family="Inter, Arial, sans-serif"
+          font-size="60"
+          font-weight="900"
+          fill="url(#brandGradient)"
+          letter-spacing="-2.2">Anivmeste</text>
   </g>
 </svg>

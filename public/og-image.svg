@@ -1,50 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0B1020"/>
-      <stop offset="100%" stop-color="#111A30"/>
+      <stop offset="0%" stop-color="#09101D"/>
+      <stop offset="100%" stop-color="#11182B"/>
     </linearGradient>
 
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#7BB4FF"/>
-      <stop offset="48%" stop-color="#8E7EFF"/>
-      <stop offset="100%" stop-color="#FF87A8"/>
+      <stop offset="48%" stop-color="#8D7FFF"/>
+      <stop offset="100%" stop-color="#FF84A8"/>
     </linearGradient>
 
-    <radialGradient id="glow1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(260 140) rotate(35) scale(520 300)">
-      <stop stop-color="#7C8CFF" stop-opacity="0.22"/>
+    <radialGradient id="glow1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(250 120) rotate(28) scale(520 300)">
+      <stop stop-color="#7C8CFF" stop-opacity="0.18"/>
       <stop offset="1" stop-color="#7C8CFF" stop-opacity="0"/>
     </radialGradient>
 
-    <radialGradient id="glow2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(980 520) rotate(12) scale(420 260)">
-      <stop stop-color="#FF7FA4" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#FF7FA4" stop-opacity="0"/>
+    <radialGradient id="glow2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(980 520) rotate(10) scale(460 280)">
+      <stop stop-color="#FF84A8" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FF84A8" stop-opacity="0"/>
     </radialGradient>
+
+    <clipPath id="wordClipOg">
+      <rect x="484" y="170" width="470" height="120"/>
+    </clipPath>
   </defs>
 
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect width="1200" height="630" fill="url(#glow1)"/>
   <rect width="1200" height="630" fill="url(#glow2)"/>
 
-  <rect x="90" y="92" width="1020" height="446" rx="34" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
+  <rect x="84" y="84" width="1032" height="462" rx="36" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)"/>
 
-  <g transform="translate(150,150)">
-    <rect x="0" y="0" width="132" height="132" rx="36" fill="#11182B" stroke="url(#accent)" stroke-width="7"/>
-    <rect x="34" y="34" width="12" height="64" rx="6" fill="url(#accent)"/>
-    <path d="M62 48C62 41.7856 68.7158 38.0718 73.9865 41.5142L93.5879 54.3154C98.3552 57.4305 98.3552 64.5695 93.5879 67.6846L73.9865 80.4858C68.7158 83.9282 62 80.2144 62 74V48Z" fill="url(#accent)"/>
-    <circle cx="93" cy="98" r="8" fill="#EEF4FF" opacity="0.92"/>
+  <!-- icon -->
+  <g transform="translate(150,160)">
+    <rect x="0" y="0" width="132" height="132" rx="38" fill="#11192E" stroke="url(#accent)" stroke-width="7"/>
+    <rect x="34" y="32" width="14" height="68" rx="7" fill="url(#accent)"/>
+    <path d="M66 49.6284C66 42.1158 74.2475 37.5733 80.5719 41.7792L101.774 55.8795C107.469 59.6673 107.469 68.3327 101.774 72.1205L80.5719 86.2208C74.2475 90.4267 66 85.8842 66 78.3716V49.6284Z" fill="url(#accent)"/>
   </g>
 
-  <text x="320" y="248" font-family="Inter, Arial, sans-serif" font-size="88" font-weight="900" fill="#ffffff" letter-spacing="-4">Ani</text>
-  <text x="466" y="248" font-family="Inter, Arial, sans-serif" font-size="88" font-weight="900" fill="url(#accent)" letter-spacing="-4">vmeste</text>
+  <!-- full word -->
+  <text x="340" y="260"
+        font-family="Inter, Arial, sans-serif"
+        font-size="92"
+        font-weight="900"
+        fill="#FFFFFF"
+        letter-spacing="-4">Anivmeste</text>
 
-  <text x="150" y="346" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="800" fill="#ffffff">Смотри аниме вместе</text>
-  <text x="150" y="404" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500" fill="#D6E3FF">
+  <!-- gradient only on vmeste -->
+  <g clip-path="url(#wordClipOg)">
+    <text x="340" y="260"
+          font-family="Inter, Arial, sans-serif"
+          font-size="92"
+          font-weight="900"
+          fill="url(#accent)"
+          letter-spacing="-4">Anivmeste</text>
+  </g>
+
+  <text x="150" y="355" font-family="Inter, Arial, sans-serif" font-size="44" font-weight="800" fill="#ffffff">Смотри аниме вместе</text>
+  <text x="150" y="415" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="500" fill="#D9E4FF">
     Создавай комнаты, приглашай друзей по ссылке и смотри аниме синхронно
   </text>
 
-  <rect x="150" y="450" width="420" height="54" rx="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.08)"/>
-  <text x="178" y="485" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#F5F8FF">
+  <rect x="150" y="460" width="430" height="58" rx="20" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.08)"/>
+  <text x="182" y="497" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#F7FAFF">
     anivmeste.onrender.com
   </text>
 </svg>

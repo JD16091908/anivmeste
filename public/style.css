@@ -72,7 +72,7 @@ input {
 }
 
 .site-brand-logo {
-  width: 210px;
+  width: 250px;
   height: auto;
   display: block;
 }
@@ -136,6 +136,27 @@ input {
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.02em;
+}
+
+.brand-logo-image {
+  display: block;
+  width: 246px;
+  max-width: 100%;
+  height: auto;
+}
+
+.room-logo-image {
+  display: block;
+  width: 204px;
+  max-width: 100%;
+  height: auto;
+}
+
+.about-modal-logo {
+  display: block;
+  width: 238px;
+  max-width: 100%;
+  height: auto;
 }
 
 .main-title {
@@ -434,13 +455,6 @@ input {
   align-items: center;
 }
 
-.about-modal-logo {
-  display: block;
-  width: 190px;
-  max-width: 100%;
-  height: auto;
-}
-
 .about-modal-content {
   flex: 1;
   min-height: 0;
@@ -617,7 +631,11 @@ input {
   }
 
   .site-brand-logo {
-    width: 168px;
+    width: 192px;
+  }
+
+  .brand-logo-image {
+    width: 204px;
   }
 
   .main-card {
@@ -674,7 +692,7 @@ input {
   }
 
   .about-modal-logo {
-    width: 160px;
+    width: 182px;
   }
 
   .about-modal-content {
