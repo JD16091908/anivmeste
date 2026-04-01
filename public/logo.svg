@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 86" fill="none">
+  <defs>
+    <linearGradient id="logoStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7BB4FF"/>
+      <stop offset="52%" stop-color="#8F7CFF"/>
+      <stop offset="100%" stop-color="#FF7FA4"/>
+    </linearGradient>
+
+    <linearGradient id="logoFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#76B6FF"/>
+      <stop offset="48%" stop-color="#8D80FF"/>
+      <stop offset="100%" stop-color="#F68AAE"/>
+    </linearGradient>
+
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- icon -->
+  <g transform="translate(3,3)">
+    <rect x="0" y="0" width="72" height="72" rx="22" fill="#11182B" stroke="url(#logoStroke)" stroke-width="5"/>
+    <rect x="18" y="18" width="8" height="36" rx="4" fill="url(#logoFill)"/>
+    <path d="M35 25.5C35 21.3414 39.6371 18.8559 43.1098 21.1515L53.7117 28.1604C56.8561 30.2393 56.8561 34.7607 53.7117 36.8396L43.1098 43.8485C39.6371 46.1441 35 43.6586 35 39.5V25.5Z" fill="url(#logoFill)"/>
+    <circle cx="53.5" cy="54.5" r="4.5" fill="#EEF4FF" opacity="0.92"/>
+  </g>
+
+  <!-- text -->
+  <g transform="translate(92,0)">
+    <text x="0" y="57" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="#FFFFFF" letter-spacing="-2.2">Ani</text>
+    <text x="86" y="57" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="url(#logoFill)" letter-spacing="-2">vmeste</text>
+  </g>
+</svg>

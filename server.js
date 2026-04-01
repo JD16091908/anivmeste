@@ -754,7 +754,7 @@ function formatMoscowTime() {
   }).format(new Date());
 }
 
-function sanitizeUsername(name) {
+function sanitizeRoomUsername(name) {
   const cleaned = String(name || '')
     .trim()
     .replace(/\s+/g, ' ')
@@ -774,7 +774,7 @@ io.on('connection', (socket) => {
 
     socket.join(roomId);
     socket.data.roomId = roomId;
-    socket.data.username = sanitizeUsername(username);
+    socket.data.username = sanitizeRoomUsername(username);
     socket.data.userKey = userKey;
 
     room.users = room.users.filter(u => u.id !== socket.id);
@@ -815,7 +815,7 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) return;
 
-    const newUsername = sanitizeUsername(username);
+    const newUsername = sanitizeRoomUsername(username);
     const user = room.users.find(u => u.id === socket.id);
     if (!user) return;
 
@@ -933,7 +933,7 @@ io.on('connection', (socket) => {
     if (!roomId || !message?.trim()) return;
 
     const safeMessage = String(message).trim().slice(0, 300);
-    const safeUsername = sanitizeUsername(username || socket.data.username || 'Гость');
+    const safeUsername = sanitizeRoomUsername(username || socket.data.username || 'Гость');
 
     io.to(roomId).emit('chat-message', {
       username: safeUsername,

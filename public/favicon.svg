@@ -1,12 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#7bb4ff"/>
-      <stop offset="50%" stop-color="#8f7dff"/>
-      <stop offset="100%" stop-color="#ff7f9f"/>
+    <linearGradient id="favStroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7BB4FF"/>
+      <stop offset="52%" stop-color="#8F7CFF"/>
+      <stop offset="100%" stop-color="#FF7FA4"/>
+    </linearGradient>
+
+    <linearGradient id="favFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#76B6FF"/>
+      <stop offset="48%" stop-color="#8D80FF"/>
+      <stop offset="100%" stop-color="#F68AAE"/>
     </linearGradient>
   </defs>
 
-  <rect width="64" height="64" rx="16" fill="#0f172a"/>
-  <path d="M32 12L49 52H41.5L37.8 42.5H26.2L22.5 52H15L32 12ZM35.2 35.5L32 27.2L28.8 35.5H35.2Z" fill="url(#g)"/>
+  <rect width="64" height="64" rx="18" fill="#0F172A"/>
+  <rect x="5" y="5" width="54" height="54" rx="17" fill="#11182B" stroke="url(#favStroke)" stroke-width="3"/>
+  <rect x="18" y="16" width="7" height="32" rx="3.5" fill="url(#favFill)"/>
+  <path d="M32 24.5C32 20.9744 35.8486 18.8677 38.7201 20.8143L47.1412 26.5206C49.7529 28.2903 49.7529 32.1097 47.1412 33.8794L38.7201 39.5857C35.8486 41.5323 32 39.4256 32 35.9V24.5Z" fill="url(#favFill)"/>
+  <circle cx="47.5" cy="47.5" r="3.5" fill="#EEF4FF" opacity="0.95"/>
 </svg>

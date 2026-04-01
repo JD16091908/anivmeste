@@ -3,6 +3,21 @@ const socket = io();
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
 
+function updateRoomDocumentMeta(currentRoomId) {
+  const title = currentRoomId === 'solo'
+    ? 'Одиночный просмотр'
+    : `Комната: ${currentRoomId}`;
+
+  document.title = `${title} — Anivmeste`;
+
+  const roomTitleEl = document.getElementById('roomTitle');
+  if (roomTitleEl) {
+    roomTitleEl.textContent = title;
+  }
+}
+
+updateRoomDocumentMeta(roomId);
+
 const USER_KEY_STORAGE = 'anivmeste_user_key';
 const USERNAME_STORAGE = 'username';
 const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
@@ -159,7 +174,6 @@ let currentState = {
   }
 };
 
-const roomTitle = document.getElementById('roomTitle');
 const hostBadge = document.getElementById('hostBadge');
 const usersList = document.getElementById('usersList');
 const placeholder = document.getElementById('placeholder');
@@ -194,10 +208,6 @@ const overlayEpisodeBtnText = document.getElementById('overlayEpisodeBtnText');
 const overlayPlayerMenu = document.getElementById('overlayPlayerMenu');
 const overlaySeasonMenu = document.getElementById('overlaySeasonMenu');
 const overlayEpisodeMenu = document.getElementById('overlayEpisodeMenu');
-
-if (roomTitle) {
-  roomTitle.textContent = roomId === 'solo' ? 'Одиночный просмотр' : `Комната: ${roomId}`;
-}
 
 if (nicknameInput) {
   nicknameInput.value = username;

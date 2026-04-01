@@ -4,15 +4,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Anivmeste — совместный просмотр аниме</title>
+
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/favicon.svg" />
   <link rel="stylesheet" href="/style.css" />
+
+  <meta name="description" content="Anivmeste — бесплатный сервис для совместного и одиночного просмотра аниме. Создавай комнату, приглашай друзей и смотри вместе." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://anivmeste.onrender.com/" />
+  <meta property="og:site_name" content="Anivmeste" />
+  <meta property="og:title" content="Anivmeste — смотри аниме вместе" />
+  <meta property="og:description" content="Создавай комнату, приглашай друзей по ссылке и смотри аниме синхронно." />
+  <meta property="og:image" content="https://anivmeste.onrender.com/og-image.svg" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Anivmeste — смотри аниме вместе" />
+  <meta name="twitter:description" content="Бесплатный сервис для совместного просмотра аниме с друзьями." />
+  <meta name="twitter:image" content="https://anivmeste.onrender.com/og-image.svg" />
 </head>
 <body>
   <div class="main-page">
+    <header class="site-header reveal reveal-1">
+      <div class="site-header-inner">
+        <a href="/" class="site-brand" aria-label="Anivmeste">
+          <img src="/logo.svg" alt="Anivmeste" class="site-brand-logo" />
+        </a>
+      </div>
+    </header>
+
     <section class="main-hero">
-      <div class="main-card">
+      <div class="main-card reveal reveal-2">
         <div class="main-card-badge brand-badge">
-          <span class="logo-wordmark-main">Ani</span><span class="logo-wordmark-accent">vmeste</span>
+          <span class="brand-chip">Совместный просмотр аниме</span>
         </div>
 
         <h1 class="main-title">Смотри аниме вместе</h1>
@@ -21,7 +45,7 @@
           Или включай одиночный режим и смотри сам.
         </p>
 
-        <div class="main-form">
+        <div class="main-form reveal reveal-3">
           <div class="form-group">
             <label for="username">Ваш ник</label>
             <input
@@ -59,7 +83,7 @@
           </div>
         </div>
 
-        <div class="home-info-grid">
+        <div class="home-info-grid reveal reveal-4">
           <div class="home-info-card">
             <div class="home-info-icon">👥</div>
             <div>
@@ -88,8 +112,8 @@
     </section>
   </div>
 
-  <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog">
-    <span class="about-service-icon">ℹ</span>
+  <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog" aria-controls="aboutModal">
+    <span class="about-service-icon" aria-hidden="true">i</span>
     <span>О сервисе</span>
   </button>
 
@@ -98,8 +122,8 @@
 
     <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
       <div class="about-modal-header">
-        <div class="about-modal-brand logo-wordmark">
-          <span class="logo-wordmark-main">Ani</span><span class="logo-wordmark-accent">vmeste</span>
+        <div class="about-modal-brand">
+          <img src="/logo.svg" alt="Anivmeste" class="about-modal-logo" />
         </div>
       </div>
 
