@@ -112,10 +112,17 @@
     </section>
   </div>
 
-  <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog" aria-controls="aboutModal">
-    <span class="about-service-icon" aria-hidden="true">i</span>
-    <span>О сервисе</span>
-  </button>
+  <div class="floating-menu">
+    <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog" aria-controls="aboutModal">
+      <span class="about-service-icon" aria-hidden="true">i</span>
+      <span>О сервисе</span>
+    </button>
+
+    <button id="supportProjectBtn" class="about-service-btn support-service-btn" type="button" aria-haspopup="dialog" aria-controls="supportModal">
+      <span class="about-service-icon support-service-icon" aria-hidden="true">♥</span>
+      <span>Поддержать проект</span>
+    </button>
+  </div>
 
   <div id="aboutModal" class="about-modal hidden" aria-hidden="true">
     <div class="about-modal-backdrop" id="aboutModalBackdrop"></div>
@@ -163,6 +170,78 @@
 
       <div class="about-modal-actions">
         <button id="closeAboutModalBtn" class="about-modal-close-btn" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="supportModal" class="about-modal hidden" aria-hidden="true">
+    <div class="about-modal-backdrop" id="supportModalBackdrop"></div>
+
+    <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
+      <div class="about-modal-header">
+        <div class="about-modal-brand">
+          <img src="/logo.svg" alt="Anivmeste" class="about-modal-logo" />
+        </div>
+      </div>
+
+      <div class="about-modal-content">
+        <section class="about-modal-section">
+          <h2 id="supportModalTitle">Поддержка проекта</h2>
+          <div class="about-modal-card">
+            Если тебе нравится <strong>Anivmeste</strong> и ты хочешь помочь развитию сервиса,
+            можешь поддержать проект удобным способом.
+            Поддержка полностью добровольная и не является обязательной для использования сайта.
+          </div>
+        </section>
+
+        <section class="about-modal-section">
+          <h2>Способы поддержки</h2>
+
+          <div class="support-grid">
+            <a
+              class="support-card support-card-boosty"
+              href="https://boosty.to/anivmeste/donate"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              <div class="support-card-head">
+                <div class="support-card-icon">B</div>
+                <div class="support-card-title-wrap">
+                  <h3>Boosty</h3>
+                  <p>Подписка или разовая поддержка</p>
+                </div>
+              </div>
+              <div class="support-card-action">Открыть Boosty</div>
+            </a>
+
+            <a
+              class="support-card support-card-da"
+              href="https://www.donationalerts.com/r/anivmeste"
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+            >
+              <div class="support-card-head">
+                <div class="support-card-icon">₽</div>
+                <div class="support-card-title-wrap">
+                  <h3>DonationAlerts</h3>
+                  <p>Быстрый разовый донат</p>
+                </div>
+              </div>
+              <div class="support-card-action">Открыть DonationAlerts</div>
+            </a>
+          </div>
+        </section>
+
+        <section class="about-modal-section">
+          <h2>Спасибо</h2>
+          <div class="about-modal-card">
+            Любая поддержка помогает оплачивать инфраструктуру, дорабатывать интерфейс и развивать новые функции сервиса.
+          </div>
+        </section>
+      </div>
+
+      <div class="about-modal-actions">
+        <button id="closeSupportModalBtn" class="about-modal-close-btn" type="button">OK</button>
       </div>
     </div>
   </div>

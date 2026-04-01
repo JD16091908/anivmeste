@@ -1,87 +1,259 @@
-const usernameInput = document.getElementById('username');
-const roomIdInput = document.getElementById('roomId');
-
 const USERNAME_STORAGE = 'username';
+const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
 
-const savedUsername = localStorage.getItem(USERNAME_STORAGE);
-if (savedUsername && usernameInput) {
-  usernameInput.value = savedUsername;
-}
+const BOOSTY_URL = 'https://boosty.to/anivmeste/donate';
+const DONATIONALERTS_URL = 'https://www.donationalerts.com/r/anivmeste';
 
-function sanitizeUsername(value) {
-  return String(value || '')
+const RANDOM_NICK_ADJECTIVES = [
+  'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
+  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный',
+  'Пухленький', 'Глупенький', 'Крутой', 'Няшный', 'Вафельный'
+];
+
+const RANDOM_NICK_NOUNS = [
+  'Лис', 'Кот', 'Волк', 'Дракон', 'Феникс', 'Енот', 'Тануки', 'Сокол',
+  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай',
+  'Руслан', 'Марат', 'Альберт'
+];
+
+function sanitizeUsername(name) {
+  return String(name || '')
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 30);
 }
 
-function getUsername() {
-  const username = sanitizeUsername(usernameInput?.value) || 'Гость';
+function pickRandomItem(items) {
+  if (!Array.isArray(items) || !items.length) return null;
+  return items[Math.floor(Math.random() * items.length)] || null;
+}
+
+function generateRandomNickname() {
+  const variants = [];
+
+  for (const adjective of RANDOM_NICK_ADJECTIVES) {
+    for (const noun of RANDOM_NICK_NOUNS) {
+      variants.push(`${adjective} ${noun}`);
+    }
+  }
+
+  return pickRandomItem(variants) || 'Гость';
+}
+
+function saveUsername(name, isManual = true) {
+  const username = sanitizeUsername(name);
+  if (!username) return '';
   localStorage.setItem(USERNAME_STORAGE, username);
+  localStorage.setItem(MANUAL_USERNAME_STORAGE, isManual ? '1' : '0');
   return username;
 }
 
-document.getElementById('createRoomBtn')?.addEventListener('click', () => {
-  const username = getUsername();
-  const roomId = 'room-' + Math.random().toString(36).slice(2, 8);
-  window.location.href = `/room/${roomId}?username=${encodeURIComponent(username)}`;
-});
+function getSavedUsername() {
+  const saved = sanitizeUsername(localStorage.getItem(USERNAME_STORAGE));
+  if (saved) return saved;
 
-document.getElementById('joinRoomBtn')?.addEventListener('click', () => {
-  const username = getUsername();
-  const roomId = roomIdInput?.value.trim();
+  const generated = generateRandomNickname();
+  saveUsername(generated, false);
+  return generated;
+}
 
-  if (!roomId) {
-    alert('Введите ID комнаты');
+function sanitizeRoomId(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .slice(0, 50);
+}
+
+function generateRoomId() {
+  return `room-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function redirectToRoom(roomId, username) {
+  const safeRoomId = sanitizeRoomId(roomId);
+  const safeUsername = sanitizeUsername(username);
+
+  if (!safeRoomId) {
+    alert('Не удалось определить ID комнаты');
     return;
   }
 
-  window.location.href = `/room/${roomId}?username=${encodeURIComponent(username)}`;
-});
-
-document.getElementById('soloWatchBtn')?.addEventListener('click', () => {
-  const username = getUsername();
-  window.location.href = `/room/solo?username=${encodeURIComponent(username)}`;
-});
-
-const aboutServiceBtn = document.getElementById('aboutServiceBtn');
-const aboutModal = document.getElementById('aboutModal');
-const aboutModalBackdrop = document.getElementById('aboutModalBackdrop');
-const closeAboutModalBtn = document.getElementById('closeAboutModalBtn');
-
-function openAboutModal() {
-  if (!aboutModal) return;
-  aboutModal.classList.remove('hidden');
-  aboutModal.classList.add('is-visible');
-  aboutModal.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
+  const query = safeUsername ? `?username=${encodeURIComponent(safeUsername)}` : '';
+  window.location.href = `/room/${encodeURIComponent(safeRoomId)}${query}`;
 }
 
-function closeAboutModal() {
-  if (!aboutModal) return;
-  aboutModal.classList.remove('is-visible');
-  aboutModal.classList.add('is-hiding');
+function setupRevealAnimations() {
+  const items = document.querySelectorAll('.reveal');
+  if (!items.length) return;
 
-  setTimeout(() => {
-    aboutModal.classList.add('hidden');
-    aboutModal.classList.remove('is-hiding');
-    aboutModal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-  }, 220);
-}
-
-aboutServiceBtn?.addEventListener('click', openAboutModal);
-aboutModalBackdrop?.addEventListener('click', closeAboutModal);
-closeAboutModalBtn?.addEventListener('click', closeAboutModal);
-
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && aboutModal && !aboutModal.classList.contains('hidden')) {
-    closeAboutModal();
-  }
-});
-
-window.addEventListener('load', () => {
-  document.querySelectorAll('.reveal').forEach((el) => {
-    el.classList.add('is-visible');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-visible');
+      observer.unobserve(entry.target);
+    });
+  }, {
+    threshold: 0.12
   });
-});
+
+  items.forEach((item) => observer.observe(item));
+}
+
+function setupModal({
+  modalId,
+  openBtnId,
+  closeBtnId,
+  backdropId
+}) {
+  const modal = document.getElementById(modalId);
+  const openBtn = document.getElementById(openBtnId);
+  const closeBtn = document.getElementById(closeBtnId);
+  const backdrop = document.getElementById(backdropId);
+
+  if (!modal || !openBtn || !closeBtn || !backdrop) return null;
+
+  let isAnimating = false;
+
+  const open = () => {
+    if (isAnimating) return;
+    modal.classList.remove('hidden', 'is-hiding');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+
+    requestAnimationFrame(() => {
+      modal.classList.add('is-visible');
+    });
+  };
+
+  const close = () => {
+    if (isAnimating || modal.classList.contains('hidden')) return;
+
+    isAnimating = true;
+    modal.classList.remove('is-visible');
+    modal.classList.add('is-hiding');
+
+    setTimeout(() => {
+      modal.classList.add('hidden');
+      modal.classList.remove('is-hiding');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+      isAnimating = false;
+    }, 220);
+  };
+
+  openBtn.addEventListener('click', open);
+  closeBtn.addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+
+  return { modal, open, close };
+}
+
+function setupHomeActions() {
+  const usernameInput = document.getElementById('username');
+  const roomIdInput = document.getElementById('roomId');
+  const createRoomBtn = document.getElementById('createRoomBtn');
+  const joinRoomBtn = document.getElementById('joinRoomBtn');
+  const soloWatchBtn = document.getElementById('soloWatchBtn');
+
+  if (!usernameInput || !roomIdInput || !createRoomBtn || !joinRoomBtn || !soloWatchBtn) {
+    return;
+  }
+
+  usernameInput.value = getSavedUsername();
+
+  const resolveUsername = () => {
+    const raw = sanitizeUsername(usernameInput.value);
+    const username = raw || generateRandomNickname();
+    usernameInput.value = username;
+    saveUsername(username, true);
+    return username;
+  };
+
+  createRoomBtn.addEventListener('click', () => {
+    const username = resolveUsername();
+    const roomId = generateRoomId();
+    redirectToRoom(roomId, username);
+  });
+
+  joinRoomBtn.addEventListener('click', () => {
+    const username = resolveUsername();
+    const roomId = sanitizeRoomId(roomIdInput.value);
+
+    if (!roomId) {
+      alert('Введите ID комнаты');
+      roomIdInput.focus();
+      return;
+    }
+
+    redirectToRoom(roomId, username);
+  });
+
+  soloWatchBtn.addEventListener('click', () => {
+    const username = resolveUsername();
+    redirectToRoom('solo', username);
+  });
+
+  usernameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      if (roomIdInput.value.trim()) {
+        joinRoomBtn.click();
+      } else {
+        createRoomBtn.click();
+      }
+    }
+  });
+
+  roomIdInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      joinRoomBtn.click();
+    }
+  });
+}
+
+function setupSupportLinks() {
+  document.querySelectorAll('a[href]').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    if (href === BOOSTY_URL || href === DONATIONALERTS_URL) {
+      link.setAttribute('target', '_blank');
+      link.setAttribute('rel', 'noopener noreferrer nofollow');
+    }
+  });
+}
+
+function init() {
+  setupRevealAnimations();
+  setupHomeActions();
+  setupSupportLinks();
+
+  const aboutModalApi = setupModal({
+    modalId: 'aboutModal',
+    openBtnId: 'aboutServiceBtn',
+    closeBtnId: 'closeAboutModalBtn',
+    backdropId: 'aboutModalBackdrop'
+  });
+
+  const supportModalApi = setupModal({
+    modalId: 'supportModal',
+    openBtnId: 'supportProjectBtn',
+    closeBtnId: 'closeSupportModalBtn',
+    backdropId: 'supportModalBackdrop'
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+
+    const aboutModal = aboutModalApi?.modal;
+    const supportModal = supportModalApi?.modal;
+
+    if (supportModal && !supportModal.classList.contains('hidden')) {
+      supportModalApi.close();
+      return;
+    }
+
+    if (aboutModal && !aboutModal.classList.contains('hidden')) {
+      aboutModalApi.close();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);

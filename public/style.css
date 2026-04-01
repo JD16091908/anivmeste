@@ -340,11 +340,17 @@ input {
   text-decoration: none;
 }
 
-.about-service-btn {
+.floating-menu {
   position: fixed;
   left: 20px;
   bottom: 20px;
   z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.about-service-btn {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -368,6 +374,14 @@ input {
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+.support-service-btn {
+  background: rgba(17, 21, 33, 0.98);
+}
+
+.support-service-btn:hover {
+  background: rgba(24, 29, 43, 0.98);
+}
+
 .about-service-icon {
   flex-shrink: 0;
   width: 24px;
@@ -382,6 +396,11 @@ input {
   font-weight: 900;
   line-height: 1;
   box-shadow: 0 2px 10px rgba(116, 180, 255, 0.3);
+}
+
+.support-service-icon {
+  background: linear-gradient(135deg, #9180ff 0%, #ff84a8 100%);
+  box-shadow: 0 2px 10px rgba(255, 132, 168, 0.28);
 }
 
 .modal-open {
@@ -493,6 +512,75 @@ input {
   gap: 10px;
 }
 
+.support-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.support-card {
+  display: block;
+  padding: 18px;
+  border-radius: 18px;
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: 0.22s ease;
+}
+
+.support-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #161616;
+}
+
+.support-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.support-card-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.support-card-boosty .support-card-icon {
+  background: linear-gradient(135deg, #f5a623 0%, #ffcc4d 100%);
+  color: #231800;
+}
+
+.support-card-da .support-card-icon {
+  background: linear-gradient(135deg, #7b8cff 0%, #ff84a8 100%);
+}
+
+.support-card-title-wrap h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  color: #ffffff;
+}
+
+.support-card-title-wrap p {
+  margin: 0;
+  color: #aebad6;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.support-card-action {
+  font-size: 14px;
+  font-weight: 800;
+  color: #dfe7ff;
+}
+
 .about-modal-actions {
   flex-shrink: 0;
   display: flex;
@@ -517,6 +605,10 @@ input {
 
 .about-modal-close-btn:hover {
   background: #444444;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .reveal {
@@ -603,6 +695,10 @@ input {
   .home-info-grid {
     grid-template-columns: 1fr;
   }
+
+  .support-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
@@ -661,9 +757,16 @@ input {
     width: 100%;
   }
 
-  .about-service-btn {
+  .floating-menu {
     left: 12px;
+    right: 12px;
     bottom: 12px;
+    gap: 8px;
+  }
+
+  .about-service-btn {
+    width: 100%;
+    justify-content: center;
     min-height: 44px;
     padding: 0 14px;
     font-size: 16px;
@@ -711,5 +814,9 @@ input {
   .about-modal-card {
     font-size: 14px;
     line-height: 1.6;
+  }
+
+  .support-card-title-wrap h3 {
+    font-size: 18px;
   }
 }

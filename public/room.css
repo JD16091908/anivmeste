@@ -56,6 +56,15 @@
   gap: 10px;
 }
 
+.room-support-btn {
+  background: linear-gradient(90deg, rgba(123, 140, 255, 0.18) 0%, rgba(255, 132, 168, 0.18) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.room-support-btn:hover {
+  background: linear-gradient(90deg, rgba(123, 140, 255, 0.28) 0%, rgba(255, 132, 168, 0.28) 100%);
+}
+
 .host-badge {
   padding: 10px 14px;
   border-radius: 12px;
@@ -818,6 +827,16 @@
     font-size: 18px;
   }
 
+  .top-actions {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .room-support-btn {
+    flex: 1 1 100%;
+  }
+
   .chat-input-box {
     flex-direction: column;
   }
@@ -912,7 +931,7 @@
     max-height: 260px;
   }
 }
-/* КРАСИВЫЕ ТЁМНЫЕ СКРОЛЛБАРЫ ПОД СТИЛЬ САЙТА */
+
 .right-sidebar,
 .chat-messages,
 .search-dropdown,
@@ -923,7 +942,6 @@
   scrollbar-gutter: stable;
 }
 
-/* Chrome, Edge, Opera, Safari */
 .right-sidebar::-webkit-scrollbar,
 .chat-messages::-webkit-scrollbar,
 .search-dropdown::-webkit-scrollbar,

@@ -1,5 +1,8 @@
 const socket = io();
 
+const BOOSTY_URL = 'https://boosty.to/anivmeste/donate';
+const DONATIONALERTS_URL = 'https://www.donationalerts.com/r/anivmeste';
+
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
 
@@ -181,6 +184,7 @@ const animeList = document.getElementById('animeList');
 const searchInput = document.getElementById('searchInput');
 const copyLinkBtn = document.getElementById('copyLinkBtn');
 const cinemaModeBtn = document.getElementById('cinemaModeBtn');
+const supportRoomBtn = document.getElementById('supportRoomBtn');
 const roomPage = document.getElementById('roomPage');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
@@ -1405,6 +1409,16 @@ if (copyLinkBtn) {
 if (cinemaModeBtn) {
   cinemaModeBtn.addEventListener('click', () => {
     roomPage?.classList.toggle('cinema-mode');
+  });
+}
+
+if (supportRoomBtn) {
+  supportRoomBtn.addEventListener('click', () => {
+    const choice = window.confirm(
+      'Открыть Boosty?\n\nНажми "ОК" для Boosty или "Отмена" для DonationAlerts.'
+    );
+
+    window.open(choice ? BOOSTY_URL : DONATIONALERTS_URL, '_blank', 'noopener,noreferrer');
   });
 }
 
