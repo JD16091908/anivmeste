@@ -633,6 +633,8 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
 });
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/support', (req, res) => res.sendFile(path.join(__dirname, 'public', 'support.html')));
+app.get('/support.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'support.html')));
 app.get('/room/:roomId', (req, res) => res.sendFile(path.join(__dirname, 'public', 'room.html')));
 app.get('/room/:roomId/*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'room.html')));
 
