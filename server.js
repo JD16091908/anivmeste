@@ -844,7 +844,7 @@ io.on('connection', (socket) => {
     room.videoState.episodeNumber = episodeNumber ?? null;
     room.videoState.playback = {
       paused: true,
-      currentTime: null,
+      currentTime: 0,
       updatedAt: Date.now()
     };
 
@@ -884,11 +884,11 @@ io.on('connection', (socket) => {
 
     if (action === 'play') {
       room.videoState.playback.paused = false;
-      if (safeTime !== null && safeTime > 0.5) room.videoState.playback.currentTime = safeTime;
+      room.videoState.playback.currentTime = safeTime !== null ? safeTime : room.videoState.playback.currentTime;
       room.videoState.playback.updatedAt = Date.now();
     } else if (action === 'pause') {
       room.videoState.playback.paused = true;
-      if (safeTime !== null && safeTime > 0.5) room.videoState.playback.currentTime = safeTime;
+      room.videoState.playback.currentTime = safeTime !== null ? safeTime : room.videoState.playback.currentTime;
       room.videoState.playback.updatedAt = Date.now();
     } else if (action === 'seek') {
       if (safeTime !== null) {
@@ -896,7 +896,7 @@ io.on('connection', (socket) => {
         room.videoState.playback.updatedAt = Date.now();
       }
     } else if (action === 'timeupdate') {
-      if (safeTime !== null && safeTime > 0.5) {
+      if (safeTime !== null && safeTime >= 0) {
         room.videoState.playback.currentTime = safeTime;
         room.videoState.playback.updatedAt = Date.now();
       }
