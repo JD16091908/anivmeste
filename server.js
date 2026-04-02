@@ -762,7 +762,7 @@ function sanitizeRoomUsername(name) {
     .replace(/\s+/g, ' ')
     .slice(0, 30);
 
-  return cleaned || 'Гость';
+  return cleaned || 'Guest';
 }
 
 io.on('connection', (socket) => {
@@ -809,7 +809,7 @@ io.on('connection', (socket) => {
 
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
     socket.to(roomId).emit('system-message', {
-      text: `${socket.data.username} присоединился к комнате`
+      text: `${socket.data.username} joined the room`
     });
   });
 
@@ -829,7 +829,7 @@ io.on('connection', (socket) => {
 
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
     io.to(roomId).emit('system-message', {
-      text: `${oldUsername} теперь ${newUsername}`
+      text: `${oldUsername} is now ${newUsername}`
     });
   });
 
@@ -857,7 +857,7 @@ io.on('connection', (socket) => {
     const state = getCurrentRoomState(roomId);
     io.to(roomId).emit('video-changed', state);
     io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    io.to(roomId).emit('system-message', { text: `Хост выбрал: ${title}` });
+    io.to(roomId).emit('system-message', { text: `Host selected: ${title}` });
   });
 
   socket.on('player-control', ({ roomId, action, currentTime }) => {
@@ -935,7 +935,7 @@ io.on('connection', (socket) => {
     if (!roomId || !message?.trim()) return;
 
     const safeMessage = String(message).trim().slice(0, 300);
-    const safeUsername = sanitizeRoomUsername(username || socket.data.username || 'Гость');
+    const safeUsername = sanitizeRoomUsername(username || socket.data.username || 'Guest');
 
     io.to(roomId).emit('chat-message', {
       username: safeUsername,
@@ -949,25 +949,23 @@ io.on('connection', (socket) => {
     if (!roomId || !rooms[roomId]) return;
 
     const room = rooms[roomId];
-    const username = socket.data.username || 'Пользователь';
+    const username = socket.data.username || 'User';
 
     room.users = room.users.filter(u => u.id !== socket.id);
 
     if (room.creatorSocketId === socket.id) {
       room.creatorSocketId = null;
-
-      const possibleHost = room.users.find(u => u.userKey === room.creatorUserKey);
-      if (possibleHost) {
-        room.creatorSocketId = possibleHost.id;
-        io.to(possibleHost.id).emit('you-are-host');
-      }
     }
 
     if (room.users.length > 0) {
       io.to(roomId).emit('system-message', {
-        text: `${username} покинул комнату`
+        text: `${username} left the room`
       });
       io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
+      io.to(roomId).emit('sync-state', {
+        ...getCurrentRoomState(roomId),
+        isHost: false
+      });
     } else {
       delete rooms[roomId];
     }

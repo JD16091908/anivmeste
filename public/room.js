@@ -26,18 +26,27 @@ updateRoomDocumentMeta(roomId);
 const USER_KEY_STORAGE = 'anivmeste_user_key';
 const USERNAME_STORAGE = 'username';
 const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
-const RECENT_RANDOM_NICKS_STORAGE = 'anivmeste_recent_random_nicks';
 
 const RANDOM_NICK_ADJECTIVES = [
-  'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
-  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный',
-  'Пухленький', 'Глупенький', 'Крутой', 'Няшный', 'Вафельный'
+  'Swift', 'Silent', 'Crimson', 'Silver', 'Golden', 'Shadow', 'Lunar', 'Solar', 'Misty', 'Stormy',
+  'Frozen', 'Burning', 'Shining', 'Dark', 'Bright', 'Wild', 'Calm', 'Rapid', 'Lucky', 'Cosmic',
+  'Electric', 'Ancient', 'Hidden', 'Secret', 'Fierce', 'Gentle', 'Brave', 'Noble', 'Clever', 'Crazy',
+  'Dreamy', 'Ghostly', 'Royal', 'Tiny', 'Mega', 'Hyper', 'Epic', 'Magic', 'Cyber', 'Neon',
+  'Velvet', 'Iron', 'Crystal', 'Phantom', 'Thunder', 'Ashen', 'Scarlet', 'Emerald', 'Ivory', 'Obsidian',
+  'Azure', 'Ruby', 'Sapphire', 'Amber', 'Pearl', 'Snowy', 'Windy', 'Dizzy', 'Mellow', 'Glowing',
+  'Stealthy', 'Vivid', 'Arcane', 'Quantum', 'Pixel', 'Turbo', 'Nova', 'Stellar', 'Void', 'Night',
+  'Dawn', 'Dusk', 'Blazing', 'Chill', 'Savage', 'Elegant', 'Fearless', 'Wicked', 'Radiant', 'Hollow'
 ];
 
 const RANDOM_NICK_NOUNS = [
-  'Лис', 'Кот', 'Волк', 'Дракон', 'Феникс', 'Енот', 'Тануки', 'Сокол',
-  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай',
-  'Руслан', 'Марат', 'Альберт'
+  'Fox', 'Wolf', 'Tiger', 'Dragon', 'Phoenix', 'Raven', 'Falcon', 'Hawk', 'Panda', 'Rabbit',
+  'Samurai', 'Ninja', 'Ronin', 'Knight', 'Wizard', 'Mage', 'Hunter', 'Rider', 'Pirate', 'Guardian',
+  'Otter', 'Bear', 'Eagle', 'Shark', 'Panther', 'Lynx', 'Crow', 'Viper', 'Leopard', 'Cobra',
+  'Kitsune', 'Tanuki', 'Yokai', 'Spirit', 'Ghost', 'Demon', 'Angel', 'Comet', 'Meteor', 'Star',
+  'Moon', 'Blade', 'Arrow', 'Storm', 'Flame', 'Frost', 'Thunder', 'Shadow', 'Spark', 'Stone',
+  'Echo', 'Whisper', 'Glitch', 'Pixel', 'Byte', 'Cipher', 'Nova', 'Orbit', 'Voyager', 'Drifter',
+  'Wanderer', 'Sage', 'Monk', 'Brawler', 'Sniper', 'Scout', 'Captain', 'King', 'Queen', 'Prince',
+  'Princess', 'Beast', 'Slayer', 'Seeker', 'Walker', 'Chaser', 'Nomad', 'Reaper', 'Sentinel', 'Alchemist'
 ];
 
 function sanitizeUsername(name) {
@@ -45,23 +54,6 @@ function sanitizeUsername(name) {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 30);
-}
-
-function getRecentRandomNickHistory() {
-  try {
-    const raw = localStorage.getItem(RECENT_RANDOM_NICKS_STORAGE);
-    const parsed = JSON.parse(raw || '[]');
-    return Array.isArray(parsed) ? parsed.map(item => String(item)) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentRandomNickHistory(history) {
-  try {
-    const safeHistory = Array.isArray(history) ? history.slice(-8) : [];
-    localStorage.setItem(RECENT_RANDOM_NICKS_STORAGE, JSON.stringify(safeHistory));
-  } catch {}
 }
 
 function buildAllNicknameVariants() {
@@ -78,37 +70,19 @@ function buildAllNicknameVariants() {
 
 function pickRandomItem(items) {
   if (!Array.isArray(items) || !items.length) return null;
-  return items[Math.floor(Math.random() * items.length)] || null;
+  const randomIndex = Math.floor(Math.random() * items.length);
+  return items[randomIndex] || null;
 }
 
 function generateRandomNickname() {
   const allVariants = buildAllNicknameVariants();
-  if (!allVariants.length) return 'Гость';
-
-  const recentHistory = getRecentRandomNickHistory();
-  const lastNickname = recentHistory[recentHistory.length - 1] || '';
-
-  let available = allVariants.filter(nick => !recentHistory.includes(nick));
-
-  if (!available.length) {
-    available = allVariants.filter(nick => nick !== lastNickname);
+  if (!allVariants.length) {
+    return `Guest${Math.floor(1000 + Math.random() * 9000)}`;
   }
 
-  if (!available.length) {
-    available = [...allVariants];
-  }
-
-  let nickname = pickRandomItem(available) || 'Гость';
-
-  if (nickname === lastNickname && allVariants.length > 1) {
-    const withoutLast = allVariants.filter(nick => nick !== lastNickname);
-    nickname = pickRandomItem(withoutLast) || nickname;
-  }
-
-  const nextHistory = [...recentHistory, nickname].slice(-8);
-  saveRecentRandomNickHistory(nextHistory);
-
-  return nickname;
+  const randomBase = pickRandomItem(allVariants) || 'Guest';
+  const suffix = Math.floor(10 + Math.random() * 90);
+  return `${randomBase}${suffix}`.slice(0, 30);
 }
 
 function resolveInitialUsername() {
@@ -128,6 +102,7 @@ function resolveInitialUsername() {
 
   const randomUsername = generateRandomNickname();
   localStorage.setItem(USERNAME_STORAGE, randomUsername);
+  localStorage.setItem(MANUAL_USERNAME_STORAGE, '0');
   return randomUsername;
 }
 
@@ -158,6 +133,7 @@ let userInteractedWithPlayer = false;
 let hostTimeBroadcastTimer = null;
 let kodikTimeRequestTimer = null;
 let userTimeBroadcastTimer = null;
+let hasShownHostMessage = false;
 
 let isOverlayPlayerOpen = false;
 let isOverlaySeasonOpen = false;
@@ -273,6 +249,7 @@ function getMoscowTimeString() {
 }
 
 function sys(text) {
+  if (!text) return;
   console.log('[sys]', text);
   if (chatMessages && window.ChatModule) {
     ChatModule.appendSystemMessage(chatMessages, text);
@@ -1324,10 +1301,15 @@ socket.on('disconnect', () => {
 socket.on('you-are-host', () => {
   isHost = true;
   updateControlState();
+
   if (currentState.embedUrl) {
     startHostTimers();
   }
-  sys('Вы хост комнаты');
+
+  if (!hasShownHostMessage) {
+    sys('Вы хост комнаты');
+    hasShownHostMessage = true;
+  }
 });
 
 socket.on('sync-state', (state) => {
@@ -1356,7 +1338,7 @@ socket.on('sync-state', (state) => {
       applyPlaybackStateWhenReady(currentState.playback, 10);
     }
   } else {
-    showPlaceholder('Ничего не выбрано', 'Хост пока не запустил тайтл');
+    showPlaceholder('Ничего не выбрано', isHost ? 'Выберите аниме' : 'Хост пока не запустил тайтл');
   }
 
   if (selectedAnime?.videos?.length) {

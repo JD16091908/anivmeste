@@ -7,15 +7,25 @@ const BOOSTY_URL = SUPPORT_CONFIG.boostyUrl || '#';
 const DONATIONALERTS_URL = SUPPORT_CONFIG.donationAlertsUrl || '#';
 
 const RANDOM_NICK_ADJECTIVES = [
-  'Быстрый', 'Тихий', 'Лунный', 'Огненный', 'Сонный', 'Храбрый', 'Снежный', 'Мягкий',
-  'Теневой', 'Яркий', 'Смешной', 'Ловкий', 'Ночной', 'Уютный', 'Грозный', 'Славный',
-  'Пухленький', 'Глупенький', 'Крутой', 'Няшный', 'Вафельный'
+  'Swift', 'Silent', 'Crimson', 'Silver', 'Golden', 'Shadow', 'Lunar', 'Solar', 'Misty', 'Stormy',
+  'Frozen', 'Burning', 'Shining', 'Dark', 'Bright', 'Wild', 'Calm', 'Rapid', 'Lucky', 'Cosmic',
+  'Electric', 'Ancient', 'Hidden', 'Secret', 'Fierce', 'Gentle', 'Brave', 'Noble', 'Clever', 'Crazy',
+  'Dreamy', 'Ghostly', 'Royal', 'Tiny', 'Mega', 'Hyper', 'Epic', 'Magic', 'Cyber', 'Neon',
+  'Velvet', 'Iron', 'Crystal', 'Phantom', 'Thunder', 'Ashen', 'Scarlet', 'Emerald', 'Ivory', 'Obsidian',
+  'Azure', 'Ruby', 'Sapphire', 'Amber', 'Pearl', 'Snowy', 'Windy', 'Dizzy', 'Mellow', 'Glowing',
+  'Stealthy', 'Vivid', 'Arcane', 'Quantum', 'Pixel', 'Turbo', 'Nova', 'Stellar', 'Void', 'Night',
+  'Dawn', 'Dusk', 'Blazing', 'Chill', 'Savage', 'Elegant', 'Fearless', 'Wicked', 'Radiant', 'Hollow'
 ];
 
 const RANDOM_NICK_NOUNS = [
-  'Лис', 'Кот', 'Волк', 'Дракон', 'Феникс', 'Енот', 'Тануки', 'Сокол',
-  'Самурай', 'Ниндзя', 'Тигр', 'Панда', 'Кицуне', 'Кролик', 'Журавль', 'Ёкай',
-  'Руслан', 'Марат', 'Альберт'
+  'Fox', 'Wolf', 'Tiger', 'Dragon', 'Phoenix', 'Raven', 'Falcon', 'Hawk', 'Panda', 'Rabbit',
+  'Samurai', 'Ninja', 'Ronin', 'Knight', 'Wizard', 'Mage', 'Hunter', 'Rider', 'Pirate', 'Guardian',
+  'Otter', 'Bear', 'Eagle', 'Shark', 'Panther', 'Lynx', 'Crow', 'Viper', 'Leopard', 'Cobra',
+  'Kitsune', 'Tanuki', 'Yokai', 'Spirit', 'Ghost', 'Demon', 'Angel', 'Comet', 'Meteor', 'Star',
+  'Moon', 'Blade', 'Arrow', 'Storm', 'Flame', 'Frost', 'Thunder', 'Shadow', 'Spark', 'Stone',
+  'Echo', 'Whisper', 'Glitch', 'Pixel', 'Byte', 'Cipher', 'Nova', 'Orbit', 'Voyager', 'Drifter',
+  'Wanderer', 'Sage', 'Monk', 'Brawler', 'Sniper', 'Scout', 'Captain', 'King', 'Queen', 'Prince',
+  'Princess', 'Beast', 'Slayer', 'Seeker', 'Walker', 'Chaser', 'Nomad', 'Reaper', 'Sentinel', 'Alchemist'
 ];
 
 function sanitizeUsername(name) {
@@ -27,7 +37,8 @@ function sanitizeUsername(name) {
 
 function pickRandomItem(items) {
   if (!Array.isArray(items) || !items.length) return null;
-  return items[Math.floor(Math.random() * items.length)] || null;
+  const randomIndex = Math.floor(Math.random() * items.length);
+  return items[randomIndex] || null;
 }
 
 function generateRandomNickname() {
@@ -39,7 +50,13 @@ function generateRandomNickname() {
     }
   }
 
-  return pickRandomItem(variants) || 'Гость';
+  if (!variants.length) {
+    return `Guest${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+
+  const randomBase = pickRandomItem(variants) || 'Guest';
+  const suffix = Math.floor(10 + Math.random() * 90);
+  return `${randomBase}${suffix}`.slice(0, 30);
 }
 
 function saveUsername(name, isManual = true) {
@@ -52,7 +69,9 @@ function saveUsername(name, isManual = true) {
 
 function getSavedUsername() {
   const saved = sanitizeUsername(localStorage.getItem(USERNAME_STORAGE));
-  if (saved) return saved;
+  const hasManual = localStorage.getItem(MANUAL_USERNAME_STORAGE) === '1';
+
+  if (hasManual && saved) return saved;
 
   const generated = generateRandomNickname();
   saveUsername(generated, false);

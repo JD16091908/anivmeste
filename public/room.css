@@ -574,12 +574,13 @@
   flex: 1;
   min-width: 0;
   height: 42px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: none;
   outline: none;
   border-radius: 12px;
   background: var(--room-input);
   color: #fff;
+  width: 100%;
 }
 
 .nickname-input::placeholder {
@@ -856,6 +857,17 @@
 
   .nickname-row {
     flex-direction: column;
+    gap: 10px;
+  }
+
+  .nickname-panel {
+    padding: 14px;
+  }
+
+  .nickname-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
   }
 
   .nickname-save-btn {
