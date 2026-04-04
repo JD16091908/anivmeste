@@ -248,50 +248,48 @@ function playChatSound() {
 
     const now = ctx.currentTime;
 
-    const oscMain = ctx.createOscillator();
-    const oscLayer = ctx.createOscillator();
-    const gainMain = ctx.createGain();
-    const gainLayer = ctx.createGain();
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    const gain2 = ctx.createGain();
     const masterGain = ctx.createGain();
     const filter = ctx.createBiquadFilter();
 
-    oscMain.type = 'triangle';
-    oscLayer.type = 'sine';
+    osc1.type = 'sine';
+    osc2.type = 'triangle';
 
-    oscMain.frequency.setValueAtTime(740, now);
-    oscMain.frequency.exponentialRampToValueAtTime(620, now + 0.09);
+    osc1.frequency.setValueAtTime(1320, now);
+    osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.045);
 
-    oscLayer.frequency.setValueAtTime(1110, now);
-    oscLayer.frequency.exponentialRampToValueAtTime(880, now + 0.09);
+    osc2.frequency.setValueAtTime(990, now);
+    osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.05);
 
-    gainMain.gain.setValueAtTime(0.0001, now);
-    gainMain.gain.exponentialRampToValueAtTime(0.028, now + 0.008);
-    gainMain.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+    gain1.gain.setValueAtTime(0.0001, now);
+    gain1.gain.exponentialRampToValueAtTime(0.018, now + 0.006);
+    gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
 
-    gainLayer.gain.setValueAtTime(0.0001, now);
-    gainLayer.gain.exponentialRampToValueAtTime(0.012, now + 0.008);
-    gainLayer.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.006);
+    gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
 
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(2200, now);
-    filter.Q.setValueAtTime(0.8, now);
+    filter.frequency.setValueAtTime(3200, now);
+    filter.Q.setValueAtTime(0.6, now);
 
     masterGain.gain.setValueAtTime(0.9, now);
 
-    oscMain.connect(gainMain);
-    oscLayer.connect(gainLayer);
-
-    gainMain.connect(filter);
-    gainLayer.connect(filter);
-
+    osc1.connect(gain1);
+    osc2.connect(gain2);
+    gain1.connect(filter);
+    gain2.connect(filter);
     filter.connect(masterGain);
     masterGain.connect(ctx.destination);
 
-    oscMain.start(now);
-    oscLayer.start(now);
+    osc1.start(now);
+    osc2.start(now);
 
-    oscMain.stop(now + 0.15);
-    oscLayer.stop(now + 0.15);
+    osc1.stop(now + 0.085);
+    osc2.stop(now + 0.085);
   } catch (error) {
     console.warn('Не удалось воспроизвести звук чата:', error);
   }
