@@ -75,11 +75,10 @@ function pickRandomItem(items) {
 
 function generateRandomNickname() {
   const allVariants = buildAllNicknameVariants();
-  if (!allVariants.length) return `Guest${Math.floor(1000 + Math.random() * 9000)}`;
+  if (!allVariants.length) return 'Guest User';
 
-  const randomBase = pickRandomItem(allVariants) || 'Guest';
-  const suffix = Math.floor(10 + Math.random() * 90);
-  return `${randomBase}${suffix}`.slice(0, 30);
+  const randomBase = pickRandomItem(allVariants) || 'Guest User';
+  return randomBase.slice(0, 30);
 }
 
 function resolveInitialUsername() {
