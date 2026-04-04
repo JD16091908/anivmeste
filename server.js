@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const dns = require('dns').promises;
+const geoip = require('geoip-lite');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -23,10 +24,114 @@ const SHIKIMORI_API_BASE = 'https://shikimori.one/api';
 
 console.log(KODIK_TOKEN ? '✅ KODIK TOKEN загружен' : '❌ KODIK TOKEN не найден');
 
+app.set('trust proxy', true);
 app.use(express.static(path.join(__dirname, 'public')));
+
+const RU_BLOCKED_ANIME = [
+  'Тетрадь смерти',
+  'Death Note',
+  'Эхо террора',
+  'Terror in Resonance',
+  'Zankyou no Terror',
+  'Инуясики',
+  'Inuyashiki',
+  'Эльфийская песнь',
+  'Elfen Lied',
+  'Токийский гуль',
+  'Tokyo Ghoul',
+  'Токийский гуль A',
+  'Tokyo Ghoul A',
+  'Токийский гуль: Корень A',
+  'Токийский гуль: re',
+  'Tokyo Ghoul re',
+  'Психопаспорт',
+  'Psycho-Pass',
+  'Парад смерти',
+  'Death Parade',
+  'Князь тьмы с задней парты',
+  'Ichiban Ushiro no Daimaou',
+  'Когда плачут цикады',
+  'Higurashi no Naku Koro ni'
+];
 
 function isApiRequest(req) {
   return req.path.startsWith('/api/');
+}
+
+function getClientIp(req) {
+  const xForwardedFor = req.headers['x-forwarded-for'];
+  const cfConnectingIp = req.headers['cf-connecting-ip'];
+  const realIp = req.headers['x-real-ip'];
+
+  let ip =
+    (typeof cfConnectingIp === 'string' && cfConnectingIp.trim()) ||
+    (typeof realIp === 'string' && realIp.trim()) ||
+    (typeof xForwardedFor === 'string' && xForwardedFor.split(',')[0].trim()) ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    '';
+
+  if (ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+
+  return ip;
+}
+
+function getCountryByIp(req) {
+  const ip = getClientIp(req);
+
+  if (!ip || ip === '127.0.0.1' || ip === '::1') {
+    return {
+      ip,
+      country: process.env.LOCAL_DEV_COUNTRY || 'LOCAL'
+    };
+  }
+
+  const geo = geoip.lookup(ip);
+  return {
+    ip,
+    country: geo?.country || 'UNKNOWN'
+  };
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isBlockedInRussiaByTitle(title) {
+  const normalizedTitle = normalizeSearchText(title);
+
+  if (!normalizedTitle) return false;
+
+  return RU_BLOCKED_ANIME.some(item => normalizeSearchText(item) === normalizedTitle);
+}
+
+function isAnimeBlockedForRequest(req, selected = {}, foundItem = null) {
+  const geo = getCountryByIp(req);
+  const isRussia = geo.country === 'RU';
+
+  const titlesToCheck = [
+    selected?.title,
+    foundItem ? normalizeTitle(foundItem) : '',
+    foundItem?.material_data?.title,
+    foundItem?.material_data?.ru_title,
+    foundItem?.material_data?.anime_title,
+    foundItem?.material_data?.full_title
+  ].filter(Boolean);
+
+  const blocked = titlesToCheck.some(isBlockedInRussiaByTitle);
+
+  return {
+    blocked: isRussia && blocked,
+    country: geo.country,
+    ip: geo.ip
+  };
 }
 
 async function checkHostAvailable(hostname) {
@@ -156,15 +261,6 @@ function getStableAnimeId(item) {
   if (shikimoriId) return `shikimori:${shikimoriId}`;
   if (kodikId) return `kodik:${kodikId}`;
   return null;
-}
-
-function normalizeSearchText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function normalizeTitleKey(value) {
@@ -298,7 +394,7 @@ function extractEpisodesFromItem(item) {
         index: Number(episodeNumber) || 0,
         iframeUrl,
         dubbing: item?.translation?.title || item?.translation?.name || '',
-        player: item?.translation?.title || item?.translation?.name || 'kodik',
+        player: item?.translation?.title || item?.translation?.name || '',
         playerId: item?.translation?.id || null,
         translationId: item?.translation?.id || null,
         translationTitle: item?.translation?.title || item?.translation?.name || '',
@@ -331,7 +427,7 @@ function extractEpisodesFromItem(item) {
         index: Number(episodeNumber) || 0,
         iframeUrl,
         dubbing: item?.translation?.title || item?.translation?.name || '',
-        player: item?.translation?.title || item?.translation?.name || 'kodik',
+        player: item?.translation?.title || item?.translation?.name || '',
         playerId: item?.translation?.id || null,
         translationId: item?.translation?.id || null,
         translationTitle: item?.translation?.title || item?.translation?.name || '',
@@ -360,7 +456,7 @@ function extractEpisodesFromItem(item) {
       index: episodeNumber || 1,
       iframeUrl: link,
       dubbing: item?.translation?.title || item?.translation?.name || '',
-      player: item?.translation?.title || item?.translation?.name || 'kodik',
+      player: item?.translation?.title || item?.translation?.name || '',
       playerId: item?.translation?.id || null,
       translationId: item?.translation?.id || null,
       translationTitle: item?.translation?.title || item?.translation?.name || '',
@@ -607,11 +703,6 @@ async function getAnimeWithRelated(shikimoriId) {
   };
 }
 
-function isMainlineRelation(relation) {
-  const rel = String(relation || '').toLowerCase();
-  return rel === 'prequel' || rel === 'sequel';
-}
-
 function isSideRelation(relation) {
   const rel = String(relation || '').toLowerCase();
   return [
@@ -669,8 +760,7 @@ async function buildWatchOrder(startShikimoriId) {
         .map(item => item.anime.id);
 
       if (prequels.length) {
-        const nextId = prequels
-          .sort((a, b) => a - b)[0];
+        const nextId = prequels.sort((a, b) => a - b)[0];
 
         if (nextId && nextId !== currentId) {
           currentId = nextId;
@@ -698,14 +788,7 @@ async function buildWatchOrder(startShikimoriId) {
 
       if (!sequels.length) break;
 
-      const sortedSequels = sequels
-        .map(id => ({
-          id,
-          year: cache.get(id)?.anime?.aired_on ? Number(String(cache.get(id).anime.aired_on).slice(0, 4)) || 9999 : 9999
-        }))
-        .sort((a, b) => a.year - b.year || a.id - b.id);
-
-      currentId = sortedSequels[0]?.id || null;
+      currentId = sequels.sort((a, b) => a - b)[0] || null;
     }
 
     return chain;
@@ -748,39 +831,17 @@ async function buildWatchOrder(startShikimoriId) {
     return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
   });
 
-  const finalItems = [];
-  const insertedSideIds = new Set();
-
-  for (const mainItem of mainline) {
-    finalItems.push({
-      ...mainItem,
-      relationLabel: mainItem.relation === 'current' ? 'Выбранный тайтл' : 'Основная линия',
-      isCurrent: mainItem.shikimoriId === startShikimoriId
-    });
-
-    const beforeNext = sideItems.filter(side => {
-      if (insertedSideIds.has(side.shikimoriId)) return false;
-      if ((Number(side.year) || 9999) <= (Number(mainItem.year) || 9999)) return false;
-      return false;
-    });
-
-    for (const side of beforeNext) {
-      insertedSideIds.add(side.shikimoriId);
-      finalItems.push({
-        ...side,
-        isCurrent: false
-      });
-    }
-  }
-
-  for (const side of sideItems) {
-    if (insertedSideIds.has(side.shikimoriId)) continue;
-    insertedSideIds.add(side.shikimoriId);
-    finalItems.push({
-      ...side,
+  const finalItems = [
+    ...mainline.map(item => ({
+      ...item,
+      relationLabel: item.relation === 'current' ? 'Выбранный тайтл' : 'Основная линия',
+      isCurrent: item.shikimoriId === startShikimoriId
+    })),
+    ...sideItems.map(item => ({
+      ...item,
       isCurrent: false
-    });
-  }
+    }))
+  ];
 
   return {
     items: finalItems.map((item, index) => ({
@@ -814,6 +875,14 @@ app.get('/api/watch-order', async (req, res) => {
     console.error('WATCH ORDER ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось загрузить порядок просмотра', details: error.message });
   }
+});
+
+app.get('/api/geo', (req, res) => {
+  const geo = getCountryByIp(req);
+  res.json({
+    ip: geo.ip,
+    country: geo.country
+  });
 });
 
 app.get('/api/health/kodik', async (req, res) => {
@@ -900,6 +969,20 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
 
     const exactTitle = normalizeSearchText(selected.title);
     const first = results.find(item => normalizeSearchText(normalizeTitle(item)) === exactTitle) || results[0];
+
+    const restriction = isAnimeBlockedForRequest(req, selected, first);
+
+    if (restriction.blocked) {
+      console.log(`[RU BLOCK] country=${restriction.country} ip=${restriction.ip} anime="${normalizeTitle(first)}"`);
+
+      return res.status(403).json({
+        error: 'Данное аниме запрещено на территории вашей страны',
+        code: 'ANIME_BLOCKED_BY_COUNTRY',
+        country: restriction.country,
+        blocked: true
+      });
+    }
+
     const animeId = getStableAnimeId(first) || `kodik:${getKodikId(first) || 'unknown'}`;
     const videos = mergeEpisodes(results);
 
@@ -914,6 +997,7 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
       year: normalizeYear(first),
       type: normalizeType(first),
       status: normalizeStatus(first),
+      shikimoriId: getShikimoriId(first),
       episodes: videos.length || null,
       videos
     });

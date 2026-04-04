@@ -452,6 +452,36 @@ function showPlaceholder(title = 'Ничего не выбрано', description
   resetBridge();
 }
 
+function showBlockedAnimeMessage(message = 'Данное аниме запрещено на территории вашей страны') {
+  selectedAnime = null;
+  currentState = {
+    animeId: null,
+    animeUrl: null,
+    episodeNumber: null,
+    embedUrl: null,
+    title: null,
+    duration: 0,
+    playback: {
+      paused: true,
+      currentTime: 0,
+      updatedAt: Date.now()
+    }
+  };
+
+  if (selectedAnimeInfo) {
+    selectedAnimeInfo.innerHTML = `
+      <div class="selected-anime-layout">
+        <div class="selected-anime-body">
+          <h3 class="selected-anime-title">Просмотр недоступен</h3>
+          <p class="selected-anime-description">${escapeHtml(message)}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  showPlaceholder('Просмотр недоступен', message);
+}
+
 function showViewerHint(text = 'Если видео не стартовало автоматически, кликните по плееру один раз. После этого play/pause будут работать лучше.') {
   if (isHost || roomId === 'solo' || !placeholder) return;
 
@@ -1288,7 +1318,14 @@ async function selectAnime(itemOrAnimeUrl) {
 
     const data = await readJsonSafely(response);
 
-    if (!response.ok) throw new Error(data?.error || 'Не удалось загрузить аниме');
+    if (!response.ok) {
+      if (response.status === 403 && data?.code === 'ANIME_BLOCKED_BY_COUNTRY') {
+        showBlockedAnimeMessage(data?.error || 'Данное аниме запрещено на территории вашей страны');
+        return;
+      }
+
+      throw new Error(data?.error || 'Не удалось загрузить аниме');
+    }
 
     selectedAnime = {
       ...data,
@@ -1314,6 +1351,7 @@ async function selectAnime(itemOrAnimeUrl) {
     if (selectedAnimeInfo) {
       selectedAnimeInfo.innerHTML = `<div>${escapeHtml(error.message || 'Ошибка')}</div>`;
     }
+    showPlaceholder('Ошибка', error.message || 'Не удалось загрузить аниме');
     hideOverlay();
   }
 }
