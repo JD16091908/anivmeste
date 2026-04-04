@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const dns = require('dns').promises;
 const geoip = require('geoip-lite');
 const { Server } = require('socket.io');
@@ -21,41 +22,50 @@ const rooms = {};
 const KODIK_TOKEN = process.env.KODIK_TOKEN || 'ea55976b6acc94f41f173e2c702ebf6b';
 const KODIK_API_BASE = 'https://kodik-api.com';
 const SHIKIMORI_API_BASE = 'https://shikimori.one/api';
+const BLOCKED_ANIME_FILE = path.join(__dirname, 'blocked-anime.json');
 
 console.log(KODIK_TOKEN ? '✅ KODIK TOKEN загружен' : '❌ KODIK TOKEN не найден');
 
 app.set('trust proxy', true);
 app.use(express.static(path.join(__dirname, 'public')));
 
-const RU_BLOCKED_ANIME = [
-  'Тетрадь смерти',
-  'Death Note',
-  'Эхо террора',
-  'Terror in Resonance',
-  'Zankyou no Terror',
-  'Инуясики',
-  'Inuyashiki',
-  'Эльфийская песнь',
-  'Elfen Lied',
-  'Токийский гуль',
-  'Tokyo Ghoul',
-  'Токийский гуль A',
-  'Tokyo Ghoul A',
-  'Токийский гуль: Корень A',
-  'Токийский гуль: re',
-  'Tokyo Ghoul re',
-  'Психопаспорт',
-  'Psycho-Pass',
-  'Парад смерти',
-  'Death Parade',
-  'Князь тьмы с задней парты',
-  'Ichiban Ushiro no Daimaou',
-  'Когда плачут цикады',
-  'Higurashi no Naku Koro ni'
-];
-
 function isApiRequest(req) {
   return req.path.startsWith('/api/');
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function loadBlockedAnimeConfig() {
+  try {
+    if (!fs.existsSync(BLOCKED_ANIME_FILE)) {
+      return { ru: [] };
+    }
+
+    const raw = fs.readFileSync(BLOCKED_ANIME_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+
+    return {
+      ru: Array.isArray(parsed?.ru) ? parsed.ru : []
+    };
+  } catch (error) {
+    console.error('BLOCKED ANIME LOAD ERROR:', error.message);
+    return { ru: [] };
+  }
+}
+
+function getBlockedAnimeListForCountry(countryCode) {
+  const config = loadBlockedAnimeConfig();
+  const key = String(countryCode || '').toLowerCase();
+  const list = config[key];
+
+  return Array.isArray(list) ? list : [];
 }
 
 function getClientIp(req) {
@@ -89,32 +99,25 @@ function getCountryByIp(req) {
   }
 
   const geo = geoip.lookup(ip);
+
   return {
     ip,
     country: geo?.country || 'UNKNOWN'
   };
 }
 
-function normalizeSearchText(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function isBlockedInRussiaByTitle(title) {
+function isBlockedForCountryByTitle(countryCode, title) {
   const normalizedTitle = normalizeSearchText(title);
-
   if (!normalizedTitle) return false;
 
-  return RU_BLOCKED_ANIME.some(item => normalizeSearchText(item) === normalizedTitle);
+  const blockedList = getBlockedAnimeListForCountry(countryCode);
+
+  return blockedList.some(item => normalizeSearchText(item) === normalizedTitle);
 }
 
 function isAnimeBlockedForRequest(req, selected = {}, foundItem = null) {
   const geo = getCountryByIp(req);
-  const isRussia = geo.country === 'RU';
+  const country = geo.country;
 
   const titlesToCheck = [
     selected?.title,
@@ -125,11 +128,11 @@ function isAnimeBlockedForRequest(req, selected = {}, foundItem = null) {
     foundItem?.material_data?.full_title
   ].filter(Boolean);
 
-  const blocked = titlesToCheck.some(isBlockedInRussiaByTitle);
+  const blocked = titlesToCheck.some(title => isBlockedForCountryByTitle(country, title));
 
   return {
-    blocked: isRussia && blocked,
-    country: geo.country,
+    blocked,
+    country,
     ip: geo.ip
   };
 }
@@ -885,6 +888,17 @@ app.get('/api/geo', (req, res) => {
   });
 });
 
+app.get('/api/blocked-anime', (req, res) => {
+  const geo = getCountryByIp(req);
+  const blockedList = getBlockedAnimeListForCountry(geo.country);
+
+  res.json({
+    country: geo.country,
+    count: blockedList.length,
+    items: blockedList
+  });
+});
+
 app.get('/api/health/kodik', async (req, res) => {
   try {
     const data = await kodikGet('/search', {
@@ -973,7 +987,7 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
     const restriction = isAnimeBlockedForRequest(req, selected, first);
 
     if (restriction.blocked) {
-      console.log(`[RU BLOCK] country=${restriction.country} ip=${restriction.ip} anime="${normalizeTitle(first)}"`);
+      console.log(`[COUNTRY BLOCK] country=${restriction.country} ip=${restriction.ip} anime="${normalizeTitle(first)}"`);
 
       return res.status(403).json({
         error: 'Данное аниме запрещено на территории вашей страны',

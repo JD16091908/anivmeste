@@ -42,21 +42,9 @@ function pickRandomItem(items) {
 }
 
 function generateRandomNickname() {
-  const variants = [];
-
-  for (const adjective of RANDOM_NICK_ADJECTIVES) {
-    for (const noun of RANDOM_NICK_NOUNS) {
-      variants.push(`${adjective} ${noun}`);
-    }
-  }
-
-  if (!variants.length) {
-    return `Guest${Math.floor(1000 + Math.random() * 9000)}`;
-  }
-
-  const randomBase = pickRandomItem(variants) || 'Guest';
-  const suffix = Math.floor(10 + Math.random() * 90);
-  return `${randomBase}${suffix}`.slice(0, 30);
+  const adjective = pickRandomItem(RANDOM_NICK_ADJECTIVES) || 'Guest';
+  const noun = pickRandomItem(RANDOM_NICK_NOUNS) || 'User';
+  return `${adjective} ${noun}`.slice(0, 30);
 }
 
 function saveUsername(name, isManual = true) {
