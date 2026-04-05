@@ -137,6 +137,7 @@ let lastKnownHostTime = null;
 let lastKnownHostTimeAt = 0;
 let hasShownFirstEpisodeHint = false;
 let watchOrderExpanded = true;
+let watchOrderExtrasExpanded = false;
 
 let isOverlayPlayerOpen = false;
 let isOverlaySeasonOpen = false;
@@ -1098,6 +1099,31 @@ async function loadWatchOrder(shikimoriId) {
 function renderWatchOrderBlock(watchOrderData) {
   if (!watchOrderData?.items?.length) return '';
 
+  const items = watchOrderData.items || [];
+  const mainItems = items.filter(item => (item.group || 'main') === 'main');
+  const extraItems = items.filter(item => item.group === 'extra');
+
+  const renderItems = (list) => list.map(item => `
+    <button
+      type="button"
+      class="watch-order-item ${item.isCurrent ? 'current' : ''}"
+      data-watch-order-item="1"
+      data-shikimori-id="${escapeHtml(item.shikimoriId)}"
+      data-anime-id="${escapeHtml(item.animeId)}"
+      data-anime-url="${escapeHtml(item.animeUrl)}"
+      data-title="${escapeHtml(item.title)}"
+      data-year="${escapeHtml(item.year || '')}"
+    >
+      <div class="watch-order-item-main">
+        <span class="watch-order-item-index">${item.order}.</span>
+        <span class="watch-order-item-title">${escapeHtml(item.title)}</span>
+      </div>
+      <div class="watch-order-item-meta">
+        ${escapeHtml(item.kind)}${item.relationLabel ? `, ${escapeHtml(item.relationLabel)}` : ''}${item.year ? `, ${escapeHtml(item.year)}` : ''}
+      </div>
+    </button>
+  `).join('');
+
   return `
     <div class="watch-order-block">
       <button type="button" class="watch-order-toggle ${watchOrderExpanded ? 'expanded' : ''}" id="watchOrderToggleBtn">
@@ -1106,26 +1132,25 @@ function renderWatchOrderBlock(watchOrderData) {
       </button>
 
       <div class="watch-order-list ${watchOrderExpanded ? 'expanded' : 'collapsed'}" id="watchOrderList">
-        ${watchOrderData.items.map(item => `
-          <button
-            type="button"
-            class="watch-order-item ${item.isCurrent ? 'current' : ''}"
-            data-watch-order-item="1"
-            data-shikimori-id="${escapeHtml(item.shikimoriId)}"
-            data-anime-id="${escapeHtml(item.animeId)}"
-            data-anime-url="${escapeHtml(item.animeUrl)}"
-            data-title="${escapeHtml(item.title)}"
-            data-year="${escapeHtml(item.year || '')}"
-          >
-            <div class="watch-order-item-main">
-              <span class="watch-order-item-index">${item.order}.</span>
-              <span class="watch-order-item-title">${escapeHtml(item.title)}</span>
+        ${mainItems.length ? `
+          <div class="watch-order-section">
+            <div class="watch-order-section-title">Основной порядок</div>
+            ${renderItems(mainItems)}
+          </div>
+        ` : ''}
+
+        ${extraItems.length ? `
+          <div class="watch-order-section watch-order-section-extra">
+            <button type="button" class="watch-order-subtoggle ${watchOrderExtrasExpanded ? 'expanded' : ''}" id="watchOrderExtrasToggleBtn">
+              <span>Дополнительно</span>
+              <span class="watch-order-toggle-arrow">${watchOrderExtrasExpanded ? '⌃' : '⌄'}</span>
+            </button>
+
+            <div class="watch-order-extra-list ${watchOrderExtrasExpanded ? 'expanded' : 'collapsed'}" id="watchOrderExtrasList">
+              ${renderItems(extraItems)}
             </div>
-            <div class="watch-order-item-meta">
-              ${escapeHtml(item.kind)}${item.relationLabel ? `, ${escapeHtml(item.relationLabel)}` : ''}${item.year ? `, ${escapeHtml(item.year)}` : ''}
-            </div>
-          </button>
-        `).join('')}
+          </div>
+        ` : ''}
       </div>
     </div>
   `;
@@ -1145,6 +1170,23 @@ function bindWatchOrderEvents() {
       const arrow = toggleBtn.querySelector('.watch-order-toggle-arrow');
       if (arrow) {
         arrow.textContent = watchOrderExpanded ? '⌃' : '⌄';
+      }
+    });
+  }
+
+  const extrasToggleBtn = document.getElementById('watchOrderExtrasToggleBtn');
+  const extrasListEl = document.getElementById('watchOrderExtrasList');
+
+  if (extrasToggleBtn && extrasListEl) {
+    extrasToggleBtn.addEventListener('click', () => {
+      watchOrderExtrasExpanded = !watchOrderExtrasExpanded;
+      extrasListEl.classList.toggle('expanded', watchOrderExtrasExpanded);
+      extrasListEl.classList.toggle('collapsed', !watchOrderExtrasExpanded);
+      extrasToggleBtn.classList.toggle('expanded', watchOrderExtrasExpanded);
+
+      const arrow = extrasToggleBtn.querySelector('.watch-order-toggle-arrow');
+      if (arrow) {
+        arrow.textContent = watchOrderExtrasExpanded ? '⌃' : '⌄';
       }
     });
   }
