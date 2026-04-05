@@ -1,18 +1,35 @@
 :root {
-  --room-panel-dark: #2d2d2d;
-  --room-panel-dark-2: #353535;
+  --room-panel-dark: #252a36;
+  --room-panel-dark-2: #2b3140;
+  --room-panel-soft: rgba(255, 255, 255, 0.04);
+  --room-panel-soft-2: rgba(255, 255, 255, 0.06);
   --room-input: #2a3758;
   --room-text: #ffffff;
   --room-muted: #aebad6;
   --room-line: rgba(255, 255, 255, 0.08);
+  --room-line-strong: rgba(255, 255, 255, 0.12);
   --room-yellow: #f59e0b;
   --room-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --room-shadow-soft: 0 12px 28px rgba(0, 0, 0, 0.24);
   --room-accent: #ff626b;
+  --room-accent-soft: rgba(255, 98, 107, 0.14);
+  --room-blue-soft: rgba(123, 140, 255, 0.12);
+  --room-radius-xl: 20px;
+  --room-radius-lg: 16px;
+  --room-radius-md: 14px;
+  --room-radius-sm: 12px;
+  --room-radius-xs: 10px;
+  --room-gap: 12px;
+  --room-gap-sm: 8px;
+  --room-gap-xs: 6px;
 }
 
 .room-page {
   min-height: 100vh;
-  background: #0b1020;
+  background:
+    radial-gradient(circle at top left, rgba(123, 140, 255, 0.08) 0%, transparent 22%),
+    radial-gradient(circle at top right, rgba(255, 132, 168, 0.08) 0%, transparent 24%),
+    linear-gradient(180deg, #0b1020 0%, #0a1020 100%);
   color: #fff;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
@@ -26,8 +43,10 @@
   justify-content: space-between;
   gap: 14px;
   padding: 0 16px;
-  background: #1a2540;
+  background: rgba(20, 30, 52, 0.88);
   border-bottom: 1px solid var(--room-line);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .logo {
@@ -60,6 +79,36 @@
   gap: 8px;
 }
 
+.small-btn,
+.btn,
+.about-modal-link-btn,
+.about-modal-close-btn {
+  border-radius: var(--room-radius-sm);
+}
+
+.small-btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--room-line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.035) 100%);
+  color: #eef4ff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  transition: 0.18s ease;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+
+.small-btn:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border-color: var(--room-line-strong);
+  transform: translateY(-1px);
+}
+
+.small-btn:active {
+  transform: translateY(0);
+}
+
 .room-support-btn {
   background: linear-gradient(90deg, rgba(123, 140, 255, 0.18) 0%, rgba(255, 132, 168, 0.18) 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -71,12 +120,13 @@
 
 .host-badge {
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--room-yellow);
   color: #1b1300;
   font-weight: 800;
   font-size: 14px;
   line-height: 1;
+  box-shadow: 0 8px 18px rgba(245, 158, 11, 0.22);
 }
 
 .room-layout-centered {
@@ -84,21 +134,21 @@
   grid-template-columns: minmax(0, 1fr) 330px;
   gap: 14px;
   min-height: calc(100vh - 64px);
-  padding: 10px;
+  padding: 12px;
   align-items: start;
 }
 
 .player-area-centered {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--room-gap);
   min-width: 0;
 }
 
 .right-sidebar {
-  background: #17233c;
+  background: linear-gradient(180deg, rgba(23, 35, 60, 0.94) 0%, rgba(20, 31, 53, 0.96) 100%);
   border: 1px solid var(--room-line);
-  border-radius: 18px;
+  border-radius: var(--room-radius-xl);
   padding: 14px;
   min-width: 0;
   position: sticky;
@@ -107,15 +157,18 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: var(--room-shadow-soft);
+  backdrop-filter: blur(12px);
 }
 
 .center-search-panel,
 .selected-anime-panel {
   position: relative;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: var(--room-panel-dark);
+  padding: 16px 18px;
+  border-radius: var(--room-radius-xl);
+  background: linear-gradient(180deg, rgba(41, 44, 52, 0.96) 0%, rgba(37, 40, 48, 0.98) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: var(--room-shadow-soft);
 }
 
 .center-search-head h2,
@@ -163,14 +216,15 @@
   width: 100%;
   height: 56px;
   padding: 0 60px 0 18px;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   border: 1px solid rgba(255, 255, 255, 0.08);
   outline: none;
-  background: var(--room-panel-dark-2);
+  background: linear-gradient(180deg, rgba(60, 60, 64, 0.86) 0%, rgba(52, 52, 58, 0.94) 100%);
   color: #fff;
   font-size: 18px;
   font-weight: 500;
   line-height: 1;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .center-search-input:focus {
@@ -205,7 +259,7 @@
   left: 16px;
   right: 16px;
   z-index: 30;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   overflow: hidden;
   background: #2f2f2f;
   border: 1px solid rgba(255, 255, 255, 0.10);
@@ -246,7 +300,7 @@
 .search-result-poster {
   width: 52px;
   height: 72px;
-  border-radius: 8px;
+  border-radius: 10px;
   object-fit: cover;
   background: #111827;
 }
@@ -302,7 +356,7 @@
 .selected-anime-layout {
   display: grid;
   grid-template-columns: 160px 1fr;
-  gap: 16px;
+  gap: 18px;
   align-items: start;
 }
 
@@ -310,9 +364,10 @@
   width: 160px;
   height: 224px;
   object-fit: cover;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   background: #111827;
   display: block;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
 .selected-anime-title {
@@ -353,7 +408,7 @@
 }
 
 .player-shell-raised {
-  margin-top: -2px;
+  margin-top: 0;
 }
 
 .player-wrapper {
@@ -363,7 +418,7 @@
   margin: 0 auto;
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: var(--room-radius-xl);
   background: #000;
   box-shadow: var(--room-shadow);
 }
@@ -374,7 +429,7 @@
   width: 100%;
   height: 100%;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--room-radius-xl);
   background: #000;
   display: block;
   z-index: 1;
@@ -414,7 +469,7 @@
   min-width: 96px;
   max-width: 160px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: var(--room-radius-xs);
   background: rgba(20, 24, 34, 0.96);
   color: #fff;
   padding: 0 10px;
@@ -461,7 +516,7 @@
   min-width: 130px;
   background: rgba(18, 18, 18, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: var(--room-radius-xs);
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
   padding: 6px;
   max-height: 240px;
@@ -541,7 +596,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  border-radius: 18px;
+  border-radius: var(--room-radius-xl);
   background: #05070d;
   display: flex;
   align-items: center;
@@ -582,7 +637,7 @@
 .placeholder.placeholder-click-through > div {
   max-width: min(92%, 560px);
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: var(--room-radius-lg);
   background: rgba(8, 12, 20, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
@@ -615,7 +670,7 @@
 
 .empty-state {
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--room-radius-sm);
   background: rgba(255, 255, 255, 0.04);
   color: #aebad6;
   font-size: 14px;
@@ -626,7 +681,7 @@
 .nickname-panel {
   margin-bottom: 14px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -652,7 +707,7 @@
   padding: 0 14px;
   border: none;
   outline: none;
-  border-radius: 12px;
+  border-radius: var(--room-radius-sm);
   background: var(--room-input);
   color: #fff;
   width: 100%;
@@ -676,10 +731,11 @@
 
 .user-item {
   padding: 14px;
-  border-radius: 16px;
-  background: #243250;
+  border-radius: var(--room-radius-lg);
+  background: linear-gradient(180deg, rgba(36, 50, 80, 0.98) 0%, rgba(32, 44, 71, 0.98) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   margin-bottom: 10px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
 }
 
 .user-main {
@@ -719,7 +775,7 @@
   min-width: 64px;
   text-align: right;
   padding: 6px 10px;
-  border-radius: 10px;
+  border-radius: var(--room-radius-xs);
   background: rgba(255, 255, 255, 0.08);
   color: #dbe7ff;
   font-size: 13px;
@@ -752,22 +808,23 @@
 .chat-message,
 .system-message {
   padding: 12px 14px;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   line-height: 1.45;
   word-break: break-word;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
 }
 
 .chat-message {
-  background: #243250;
+  background: linear-gradient(180deg, rgba(36, 50, 80, 0.98) 0%, rgba(31, 44, 71, 0.98) 100%);
 }
 
 .chat-message.self,
 .chat-message.self-message {
-  background: #3b2b6b;
+  background: linear-gradient(180deg, rgba(59, 43, 107, 0.98) 0%, rgba(50, 36, 94, 0.98) 100%);
 }
 
 .system-message {
-  background: #243250;
+  background: rgba(36, 50, 80, 0.85);
   color: #9db4ff;
   font-style: italic;
 }
@@ -807,7 +864,7 @@
   padding: 12px 14px;
   border: none;
   outline: none;
-  border-radius: 12px;
+  border-radius: var(--room-radius-sm);
   background: var(--room-input);
   color: #fff;
   font-size: 14px;
@@ -1153,13 +1210,14 @@
   min-height: 38px;
   padding: 0 14px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--room-radius-sm);
   background: linear-gradient(90deg, #2fd67b 0%, #44d68f 100%);
   color: #ffffff;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   transition: 0.2s ease;
+  box-shadow: 0 10px 20px rgba(47, 214, 123, 0.18);
 }
 
 .watch-order-toggle:hover {
@@ -1174,7 +1232,7 @@
 
 .watch-order-list {
   margin-top: 10px;
-  border-radius: 14px;
+  border-radius: var(--room-radius-md);
   border: 1px solid rgba(255, 255, 255, 0.08);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
