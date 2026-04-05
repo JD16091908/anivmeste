@@ -3,17 +3,110 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const dns = require('dns').promises;
+const crypto = require('crypto');
 const geoip = require('geoip-lite');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 
 const app = express();
+app.set('trust proxy', true);
+
+const ALLOWED_ORIGINS = new Set([
+  'https://anivmeste.ru',
+  'https://www.anivmeste.ru',
+  'https://anivmeste.onrender.com'
+]);
+
+const ROOM_CREATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const ROOM_CREATE_LIMIT_MAX = 5;
+const EMPTY_ROOM_TTL_MS = 30 * 60 * 1000;
+const STALE_ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+const ROOM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+
+const roomCreationLog = new Map();
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  return ALLOWED_ORIGINS.has(origin);
+}
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !isAllowedOrigin(origin)) {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+  next();
+});
+
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      fontSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "ws:", "https://anivmeste.ru", "https://www.anivmeste.ru", "https://anivmeste.onrender.com"],
+      frameSrc: ["'self'", "https:", "http:"],
+      mediaSrc: ["'self'", "https:", "http:"],
+      manifestSrc: ["'self'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'DENY');
+  next();
+});
+
 app.use(express.json({ limit: '1mb' }));
+
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 240,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use(globalLimiter);
+app.use('/api', apiLimiter);
 
 const server = http.createServer(app);
 const io = new Server(server, {
   transports: ['websocket', 'polling'],
   pingInterval: 25000,
-  pingTimeout: 20000
+  pingTimeout: 20000,
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin not allowed'), false);
+    },
+    credentials: true
+  },
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+    if (!origin || isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+    return callback('Origin not allowed', false);
+  }
 });
 
 const PORT = process.env.PORT || 3000;
@@ -26,8 +119,11 @@ const BLOCKED_ANIME_FILE = path.join(__dirname, 'blocked-anime.json');
 
 console.log(KODIK_TOKEN ? '✅ KODIK TOKEN загружен' : '❌ KODIK TOKEN не найден');
 
-app.set('trust proxy', true);
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  extensions: false,
+  index: false,
+  maxAge: '1h'
+}));
 
 function isApiRequest(req) {
   return req.path.startsWith('/api/');
@@ -40,6 +136,29 @@ function normalizeSearchText(value) {
     .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function sanitizeRoomId(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .slice(0, 120);
+}
+
+function sanitizeAccessToken(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 128);
+}
+
+function secureCompare(a, b) {
+  const left = Buffer.from(String(a || ''));
+  const right = Buffer.from(String(b || ''));
+
+  if (left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
 }
 
 function loadBlockedAnimeConfig() {
@@ -101,6 +220,36 @@ function getClientIp(req) {
   }
 
   return ip;
+}
+
+function cleanupRoomCreationLog() {
+  const now = Date.now();
+
+  for (const [ip, timestamps] of roomCreationLog.entries()) {
+    const filtered = timestamps.filter(ts => now - ts < ROOM_CREATE_LIMIT_WINDOW_MS);
+    if (filtered.length) {
+      roomCreationLog.set(ip, filtered);
+    } else {
+      roomCreationLog.delete(ip);
+    }
+  }
+}
+
+function canCreateRoomForIp(ip) {
+  cleanupRoomCreationLog();
+
+  const safeIp = String(ip || 'unknown');
+  const timestamps = roomCreationLog.get(safeIp) || [];
+  return timestamps.length < ROOM_CREATE_LIMIT_MAX;
+}
+
+function registerRoomCreationForIp(ip) {
+  cleanupRoomCreationLog();
+
+  const safeIp = String(ip || 'unknown');
+  const timestamps = roomCreationLog.get(safeIp) || [];
+  timestamps.push(Date.now());
+  roomCreationLog.set(safeIp, timestamps);
 }
 
 function getCountryByIp(req) {
@@ -1104,11 +1253,19 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-function ensureRoom(roomId) {
-  if (!rooms[roomId]) {
-    rooms[roomId] = {
+function ensureRoom(roomId, accessToken = '') {
+  const safeRoomId = sanitizeRoomId(roomId);
+  const safeAccessToken = sanitizeAccessToken(accessToken);
+  const now = Date.now();
+
+  if (!rooms[safeRoomId]) {
+    rooms[safeRoomId] = {
       creatorUserKey: null,
       creatorSocketId: null,
+      accessToken: safeAccessToken || null,
+      createdAt: now,
+      lastActivityAt: now,
+      emptySince: null,
       users: [],
       videoState: {
         embedUrl: null,
@@ -1119,13 +1276,21 @@ function ensureRoom(roomId) {
         playback: {
           paused: true,
           currentTime: null,
-          updatedAt: Date.now()
+          updatedAt: now
         }
       }
     };
   }
 
-  return rooms[roomId];
+  return rooms[safeRoomId];
+}
+
+function touchRoom(room) {
+  if (!room) return;
+  room.lastActivityAt = Date.now();
+  if (room.users.length > 0) {
+    room.emptySince = null;
+  }
 }
 
 function attachCreatorSocketIfOwner(room, socket) {
@@ -1141,6 +1306,20 @@ function isRoomHost(room, socket) {
   return !!room.creatorUserKey
     && room.creatorUserKey === socket.data.userKey
     && room.creatorSocketId === socket.id;
+}
+
+function canJoinRoom(room, providedAccessToken, socket) {
+  if (!room) return false;
+
+  if (!room.accessToken) {
+    return true;
+  }
+
+  if (isRoomHost(room, socket)) {
+    return true;
+  }
+
+  return secureCompare(room.accessToken, sanitizeAccessToken(providedAccessToken));
 }
 
 function getEffectivePlayback(pb) {
@@ -1211,19 +1390,93 @@ function sanitizeRoomUsername(name) {
   return cleaned || 'Guest';
 }
 
+function pauseRoomPlayback(room) {
+  if (!room?.videoState?.playback) return;
+
+  room.videoState.playback.paused = true;
+  room.videoState.playback.updatedAt = Date.now();
+  touchRoom(room);
+}
+
+function cleanupRooms() {
+  const now = Date.now();
+
+  for (const [roomId, room] of Object.entries(rooms)) {
+    if (!room) continue;
+
+    if (!Array.isArray(room.users)) {
+      delete rooms[roomId];
+      continue;
+    }
+
+    if (room.users.length === 0) {
+      if (!room.emptySince) {
+        room.emptySince = now;
+      }
+
+      const emptyFor = now - room.emptySince;
+      const staleFor = now - (room.lastActivityAt || room.createdAt || now);
+
+      if (emptyFor >= EMPTY_ROOM_TTL_MS || staleFor >= STALE_ROOM_TTL_MS) {
+        delete rooms[roomId];
+      }
+    }
+  }
+}
+
+setInterval(cleanupRooms, ROOM_CLEANUP_INTERVAL_MS);
+
 io.on('connection', (socket) => {
   socket.data.lastSeekEmitAt = 0;
   socket.data.lastUserTimeEmitAt = 0;
 
-  socket.on('join-room', ({ roomId, username, userKey }) => {
-    if (!roomId || !userKey) return;
+  socket.on('join-room', ({ roomId, username, userKey, accessToken }) => {
+    const safeRoomId = sanitizeRoomId(roomId);
+    const safeAccessToken = sanitizeAccessToken(accessToken);
+    const socketIp = getClientIp({ headers: socket.handshake.headers, ip: socket.handshake.address, socket: { remoteAddress: socket.handshake.address } });
 
-    const room = ensureRoom(roomId);
+    if (!safeRoomId || !userKey) {
+      socket.emit('join-error', { message: 'Некорректные данные для входа в комнату' });
+      return;
+    }
 
-    socket.join(roomId);
-    socket.data.roomId = roomId;
+    const roomExists = !!rooms[safeRoomId];
+
+    if (!roomExists) {
+      if (!canCreateRoomForIp(socketIp)) {
+        socket.emit('join-error', { message: 'Слишком много созданий комнат с вашего IP. Попробуйте позже.' });
+        return;
+      }
+      registerRoomCreationForIp(socketIp);
+    }
+
+    const room = roomExists
+      ? rooms[safeRoomId]
+      : ensureRoom(safeRoomId, safeAccessToken);
+
+    socket.data.roomId = safeRoomId;
     socket.data.username = sanitizeRoomUsername(username);
     socket.data.userKey = userKey;
+    socket.data.accessToken = safeAccessToken;
+
+    if (!room.creatorUserKey) {
+      room.creatorUserKey = userKey;
+      room.creatorSocketId = socket.id;
+      if (safeAccessToken) {
+        room.accessToken = safeAccessToken;
+      }
+    } else {
+      attachCreatorSocketIfOwner(room, socket);
+    }
+
+    const isHostNow = isRoomHost(room, socket);
+
+    if (!isHostNow && !canJoinRoom(room, safeAccessToken, socket)) {
+      socket.emit('join-error', { message: 'Доступ в комнату запрещён. Используйте правильную ссылку-приглашение.' });
+      return;
+    }
+
+    socket.join(safeRoomId);
 
     room.users = room.users.filter(u => u.id !== socket.id);
 
@@ -1235,32 +1488,26 @@ io.on('connection', (socket) => {
       timeUpdatedAt: 0
     });
 
-    if (!room.creatorUserKey) {
-      room.creatorUserKey = userKey;
-      room.creatorSocketId = socket.id;
-    } else {
-      attachCreatorSocketIfOwner(room, socket);
-    }
-
-    const isHostNow = isRoomHost(room, socket);
+    touchRoom(room);
 
     if (isHostNow) {
       socket.emit('you-are-host');
     }
 
     socket.emit('sync-state', {
-      ...getCurrentRoomState(roomId),
+      ...getCurrentRoomState(safeRoomId),
       isHost: isHostNow
     });
 
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    socket.to(roomId).emit('system-message', {
+    io.to(safeRoomId).emit('room-users', getUsersWithMeta(safeRoomId));
+    socket.to(safeRoomId).emit('system-message', {
       text: `${socket.data.username} вошёл в комнату`
     });
   });
 
   socket.on('change-username', ({ roomId, username }) => {
-    const room = rooms[roomId];
+    const safeRoomId = sanitizeRoomId(roomId);
+    const room = rooms[safeRoomId];
     if (!room) return;
 
     const newUsername = sanitizeRoomUsername(username);
@@ -1272,15 +1519,17 @@ io.on('connection', (socket) => {
 
     user.username = newUsername;
     socket.data.username = newUsername;
+    touchRoom(room);
 
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    io.to(roomId).emit('system-message', {
+    io.to(safeRoomId).emit('room-users', getUsersWithMeta(safeRoomId));
+    io.to(safeRoomId).emit('system-message', {
       text: `${oldUsername} теперь ${newUsername}`
     });
   });
 
   socket.on('change-video', ({ roomId, embedUrl, title, animeId, animeUrl, episodeNumber }) => {
-    const room = rooms[roomId];
+    const safeRoomId = sanitizeRoomId(roomId);
+    const room = rooms[safeRoomId];
     if (!room || !isRoomHost(room, socket)) return;
 
     room.videoState.embedUrl = embedUrl || null;
@@ -1300,14 +1549,17 @@ io.on('connection', (socket) => {
       timeUpdatedAt: 0
     }));
 
-    const state = getCurrentRoomState(roomId);
-    io.to(roomId).emit('video-changed', state);
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-    io.to(roomId).emit('system-message', { text: `Хост выбрал: ${title}` });
+    touchRoom(room);
+
+    const state = getCurrentRoomState(safeRoomId);
+    io.to(safeRoomId).emit('video-changed', state);
+    io.to(safeRoomId).emit('room-users', getUsersWithMeta(safeRoomId));
+    io.to(safeRoomId).emit('system-message', { text: `Хост выбрал: ${title}` });
   });
 
   socket.on('player-control', ({ roomId, action, currentTime }) => {
-    const room = rooms[roomId];
+    const safeRoomId = sanitizeRoomId(roomId);
+    const room = rooms[safeRoomId];
     if (!room || !isRoomHost(room, socket)) return;
 
     const safeTime = typeof currentTime === 'number' && !Number.isNaN(currentTime)
@@ -1348,7 +1600,9 @@ io.on('connection', (socket) => {
       }
     }
 
-    socket.to(roomId).emit('player-control', {
+    touchRoom(room);
+
+    socket.to(safeRoomId).emit('player-control', {
       action,
       currentTime: room.videoState.playback.currentTime,
       paused: room.videoState.playback.paused,
@@ -1357,7 +1611,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('update-user-time', ({ roomId, currentTime }) => {
-    const room = rooms[roomId];
+    const safeRoomId = sanitizeRoomId(roomId);
+    const room = rooms[safeRoomId];
     if (!room) return;
 
     const now = Date.now();
@@ -1373,17 +1628,27 @@ io.on('connection', (socket) => {
 
     user.currentTime = safeTime;
     user.timeUpdatedAt = now;
+    touchRoom(room);
 
-    io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
+    io.to(safeRoomId).emit('room-users', getUsersWithMeta(safeRoomId));
   });
 
   socket.on('chat-message', ({ roomId, username, message }) => {
-    if (!roomId || !message?.trim()) return;
+    const safeRoomId = sanitizeRoomId(roomId);
+    if (!safeRoomId || !message?.trim()) return;
+
+    const room = rooms[safeRoomId];
+    if (!room) return;
+
+    const user = room.users.find(u => u.id === socket.id);
+    if (!user) return;
 
     const safeMessage = String(message).trim().slice(0, 300);
-    const safeUsername = sanitizeRoomUsername(username || socket.data.username || 'Guest');
+    const safeUsername = sanitizeRoomUsername(username || socket.data.username || user.username || 'Guest');
 
-    io.to(roomId).emit('chat-message', {
+    touchRoom(room);
+
+    io.to(safeRoomId).emit('chat-message', {
       username: safeUsername,
       message: safeMessage,
       time: formatMoscowTime()
@@ -1396,24 +1661,38 @@ io.on('connection', (socket) => {
 
     const room = rooms[roomId];
     const username = socket.data.username || 'User';
+    const wasHost = room.creatorSocketId === socket.id;
 
     room.users = room.users.filter(u => u.id !== socket.id);
 
-    if (room.creatorSocketId === socket.id) {
+    if (wasHost) {
       room.creatorSocketId = null;
+      pauseRoomPlayback(room);
     }
 
     if (room.users.length > 0) {
+      touchRoom(room);
+
       io.to(roomId).emit('system-message', {
         text: `${username} вышел из комнаты`
       });
       io.to(roomId).emit('room-users', getUsersWithMeta(roomId));
-      io.to(roomId).emit('sync-state', {
-        ...getCurrentRoomState(roomId),
-        isHost: false
-      });
+
+      if (wasHost) {
+        io.to(roomId).emit('player-control', {
+          action: 'pause',
+          currentTime: room.videoState.playback.currentTime,
+          paused: true,
+          updatedAt: room.videoState.playback.updatedAt
+        });
+
+        io.to(roomId).emit('system-message', {
+          text: 'Хост вышел из комнаты. Воспроизведение поставлено на паузу.'
+        });
+      }
     } else {
-      delete rooms[roomId];
+      room.emptySince = Date.now();
+      room.lastActivityAt = Date.now();
     }
   });
 });
