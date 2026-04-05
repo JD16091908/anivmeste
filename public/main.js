@@ -69,16 +69,32 @@ function getSavedUsername() {
 function sanitizeRoomId(value) {
   return String(value || '')
     .trim()
-    .replace(/\s+/g, '-')
+    .replace(/\s+/g, '')
     .replace(/[^a-zA-Z0-9_-]/g, '')
-    .slice(0, 50);
+    .slice(0, 120);
+}
+
+function generateSecureToken(length = 32) {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+
+  let result = '';
+  for (let i = 0; i < length; i += 1) {
+    result += chars[array[i] % chars.length];
+  }
+  return result;
 }
 
 function generateRoomId() {
-  return `room-${Math.random().toString(36).slice(2, 8)}`;
+  return `r_${generateSecureToken(24)}`;
 }
 
-function redirectToRoom(roomId, username) {
+function generateRoomAccessToken() {
+  return generateSecureToken(32);
+}
+
+function redirectToRoom(roomId, username, accessToken = '') {
   const safeRoomId = sanitizeRoomId(roomId);
   const safeUsername = sanitizeUsername(username);
 
@@ -87,7 +103,11 @@ function redirectToRoom(roomId, username) {
     return;
   }
 
-  const query = safeUsername ? `?username=${encodeURIComponent(safeUsername)}` : '';
+  const params = new URLSearchParams();
+  if (safeUsername) params.set('username', safeUsername);
+  if (accessToken) params.set('access', accessToken);
+
+  const query = params.toString() ? `?${params.toString()}` : '';
   window.location.href = `/room/${encodeURIComponent(safeRoomId)}${query}`;
 }
 
@@ -204,7 +224,8 @@ function setupHomeActions() {
   createRoomBtn.addEventListener('click', () => {
     const username = resolveUsername();
     const roomId = generateRoomId();
-    redirectToRoom(roomId, username);
+    const accessToken = generateRoomAccessToken();
+    redirectToRoom(roomId, username, accessToken);
   });
 
   joinRoomBtn.addEventListener('click', () => {
