@@ -740,125 +740,15 @@ function strictMatchResults(items, selected) {
   return filtered;
 }
 
-async function fetchFullEpisodesForLongAnime(results) {
-  const first = results[0];
-  if (!first) return results;
-
-  const currentEpisodesCount = mergeEpisodes(results).length;
-  const maxKnownEpisode = getLastEpisode(first);
-
-  if (currentEpisodesCount >= 10 || maxKnownEpisode < 20) {
-    return results;
-  }
-
-  console.log(`[Long Anime Detected] ${normalizeTitle(first)} | episodes found: ${currentEpisodesCount}, last known: ${maxKnownEpisode}`);
-  console.log('Запрашиваю полный список серий по material_id');
-
-  const materialId = getMaterialId(first);
-  if (!materialId) return results;
-
-  try {
-    const fullData = await kodikGet('/list', {
-      material_id: materialId,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const fullResults = Array.isArray(fullData?.results) ? fullData.results : [];
-    return [...results, ...fullResults];
-  } catch (error) {
-    console.log('Не удалось получить полный список серий:', error.message);
-    return results;
-  }
-}
-
-async function fetchAnimeBySelection(selected) {
-  if (selected?.shikimoriId) {
-    const [searchData, listData] = await Promise.all([
-      kodikGet('/search', {
-        shikimori_id: selected.shikimoriId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      }),
-      kodikGet('/list', {
-        shikimori_id: selected.shikimoriId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      })
-    ]);
-
-    let results = [
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
-    ];
-
-    return await fetchFullEpisodesForLongAnime(results);
-  }
-
-  if (selected?.kodikId) {
-    const [searchData, listData] = await Promise.all([
-      kodikGet('/search', {
-        id: selected.kodikId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      }),
-      kodikGet('/list', {
-        id: selected.kodikId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      })
-    ]);
-
-    let results = [
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
-    ];
-
-    return await fetchFullEpisodesForLongAnime(results);
-  }
-
-  if (selected?.title) {
-    const [searchData, listData] = await Promise.all([
-      kodikGet('/search', {
-        title: selected.title,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      }),
-      kodikGet('/list', {
-        title: selected.title,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        year: selected.year || undefined,
-        types: 'anime-serial,anime'
-      })
-    ]);
-
-    let results = [
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
-    ];
-
-    return await fetchFullEpisodesForLongAnime(results);
-  }
-
-  return [];
-}
-
 function normalizeShikiType(kind) {
   const value = String(kind || '').toLowerCase();
 
   if (value === 'tv') return 'TV';
-  if (value === 'movie') return 'Movie';
+  if (value === 'movie') return 'Фильм';
   if (value === 'ova') return 'OVA';
   if (value === 'ona') return 'ONA';
-  if (value === 'special') return 'Special';
-  if (value === 'music') return 'Music';
+  if (value === 'special') return 'Спешл';
+  if (value === 'music') return 'Музыкальное видео';
   return value ? value.toUpperCase() : 'Anime';
 }
 
@@ -867,18 +757,33 @@ function relationLabel(relation) {
 
   if (rel === 'prequel') return 'Приквел';
   if (rel === 'sequel') return 'Продолжение';
-  if (rel === 'side_story') return 'Дополнение';
+  if (rel === 'side_story') return 'Побочная история';
   if (rel === 'alternative_version') return 'Альтернативная версия';
-  if (rel === 'alternative_setting') return 'Альтернативный сеттинг';
-  if (rel === 'full_story') return 'Полная история';
+  if (rel === 'alternative_setting') return 'Альтернативный мир';
+  if (rel === 'full_story') return 'Полная версия истории';
   if (rel === 'parent_story') return 'Основная история';
   if (rel === 'summary') return 'Рекап';
-  if (rel === 'character') return 'Персонажи';
+  if (rel === 'character') return 'История персонажей';
   if (rel === 'spin_off') return 'Спин-офф';
-  if (rel === 'other') return 'Связано';
-  if (rel === 'current') return 'Текущий';
+  if (rel === 'adaptation') return 'Экранизация';
+  if (rel === 'other') return 'Связанный тайтл';
+  if (rel === 'current') return 'Выбранный тайтл';
+  if (rel === 'mainline') return 'Основная линия';
+  if (rel === 'extra') return 'Дополнительно';
 
-  return rel || 'Связано';
+  return 'Связанный тайтл';
+}
+
+function isRecapOrJunkRelation(relation, kind, title = '') {
+  const rel = String(relation || '').toLowerCase();
+  const k = String(kind || '').toLowerCase();
+  const t = String(title || '').toLowerCase();
+
+  if (rel === 'summary' || rel === 'character') return true;
+  if (t.includes('recap') || t.includes('summary') || t.includes('омнибус')) return true;
+  if (k === 'special' && rel === 'other') return true;
+
+  return false;
 }
 
 function graphNodeFromAnime(anime, relation = 'other') {
@@ -919,32 +824,59 @@ function isSideRelation(relation) {
     'alternative_setting',
     'full_story',
     'parent_story',
-    'summary',
-    'other',
-    'character'
+    'other'
   ].includes(rel);
 }
 
-function sidePriority(item) {
-  const rel = String(item.relation || '').toLowerCase();
-  const kind = String(item.kind || '').toLowerCase();
+function mainlinePriority(node) {
+  const rel = String(node?.relation || '').toLowerCase();
+  const kind = String(node?.kind || '').toLowerCase();
+  const year = Number(node?.year) || 9999;
 
-  if (rel === 'parent_story') return 10;
-  if (rel === 'full_story') return 20;
-  if (rel === 'side_story' && kind === 'tv') return 30;
-  if (rel === 'side_story') return 40;
-  if (rel === 'spin_off') return 50;
-  if (rel === 'alternative_version') return 60;
-  if (rel === 'alternative_setting') return 70;
-  if (kind === 'movie') return 80;
-  if (kind === 'ova' || kind === 'ona') return 90;
-  if (kind === 'special') return 100;
-  if (rel === 'summary') return 110;
-  return 95;
+  let score = 0;
+
+  if (rel === 'current') score += 10000;
+  if (rel === 'mainline') score += 8000;
+  if (rel === 'sequel') score += 7000;
+  if (rel === 'prequel') score += 7000;
+
+  if (kind === 'tv') score += 3000;
+  else if (kind === 'movie') score += 1500;
+  else if (kind === 'ova') score += 900;
+  else if (kind === 'ona') score += 800;
+  else if (kind === 'special') score += 200;
+
+  score -= Math.min(year, 9999);
+
+  return score;
+}
+
+function extraPriority(node) {
+  const rel = String(node?.relation || '').toLowerCase();
+  const kind = String(node?.kind || '').toLowerCase();
+
+  let score = 0;
+
+  if (rel === 'parent_story') score += 1000;
+  if (rel === 'full_story') score += 900;
+  if (rel === 'side_story') score += 800;
+  if (rel === 'spin_off') score += 700;
+  if (rel === 'alternative_version') score += 600;
+  if (rel === 'alternative_setting') score += 500;
+  if (rel === 'other') score += 300;
+
+  if (kind === 'tv') score += 300;
+  else if (kind === 'movie') score += 250;
+  else if (kind === 'ova') score += 200;
+  else if (kind === 'ona') score += 180;
+  else if (kind === 'special') score += 50;
+
+  return score;
 }
 
 async function buildWatchOrder(startShikimoriId) {
   const cache = new Map();
+  const visited = new Set();
 
   async function loadNode(id) {
     if (cache.has(id)) return cache.get(id);
@@ -953,102 +885,104 @@ async function buildWatchOrder(startShikimoriId) {
     return data;
   }
 
-  const visitedMainline = new Set();
+  async function collectConnectedFranchise(rootId) {
+    const queue = [rootId];
+    const nodesMap = new Map();
 
-  async function findEarliestMainline(id) {
-    let currentId = id;
-    let moved = true;
+    while (queue.length) {
+      const currentId = queue.shift();
+      if (!currentId || visited.has(currentId)) continue;
+      visited.add(currentId);
 
-    while (moved) {
-      moved = false;
       const data = await loadNode(currentId);
-      const prequels = data.related
-        .filter(item => String(item?.relation || '').toLowerCase() === 'prequel' && item?.anime?.id)
-        .map(item => item.anime.id);
+      const currentNode = graphNodeFromAnime(data.anime, currentId === rootId ? 'current' : 'mainline');
 
-      if (prequels.length) {
-        const nextId = prequels.sort((a, b) => a - b)[0];
+      if (currentNode) {
+        nodesMap.set(currentNode.shikimoriId, currentNode);
+      }
 
-        if (nextId && nextId !== currentId) {
-          currentId = nextId;
-          moved = true;
+      for (const item of data.related) {
+        const anime = item?.anime;
+        const relation = String(item?.relation || '').toLowerCase();
+        if (!anime?.id) continue;
+
+        const node = graphNodeFromAnime(anime, relation);
+        if (!node) continue;
+
+        if (!nodesMap.has(node.shikimoriId)) {
+          nodesMap.set(node.shikimoriId, node);
+        }
+
+        if (!isRecapOrJunkRelation(relation, anime.kind, anime.russian || anime.name || '')) {
+          queue.push(anime.id);
         }
       }
     }
 
-    return currentId;
+    return [...nodesMap.values()];
   }
 
-  async function buildMainlineChain(startId) {
-    const chain = [];
-    let currentId = await findEarliestMainline(startId);
+  const allNodes = await collectConnectedFranchise(startShikimoriId);
 
-    while (currentId && !visitedMainline.has(currentId)) {
-      visitedMainline.add(currentId);
+  const filteredNodes = allNodes.filter(node =>
+    !isRecapOrJunkRelation(node.relation, node.kind, node.title)
+  );
 
-      const data = await loadNode(currentId);
-      chain.push(graphNodeFromAnime(data.anime, currentId === startId ? 'current' : 'mainline'));
+  const currentNode = filteredNodes.find(node => node.shikimoriId === startShikimoriId) || null;
 
-      const sequels = data.related
-        .filter(item => String(item?.relation || '').toLowerCase() === 'sequel' && item?.anime?.id)
-        .map(item => item.anime.id);
-
-      if (!sequels.length) break;
-
-      currentId = sequels.sort((a, b) => a - b)[0] || null;
-    }
-
-    return chain;
-  }
-
-  const mainline = await buildMainlineChain(startShikimoriId);
-  const mainlineIds = new Set(mainline.map(item => item.shikimoriId));
-
-  const sideItemsMap = new Map();
-
-  for (const mainItem of mainline) {
-    const data = await loadNode(mainItem.shikimoriId);
-
-    for (const relationItem of data.related) {
-      const relation = String(relationItem?.relation || '').toLowerCase();
-      const anime = relationItem?.anime;
-      if (!anime?.id) continue;
-      if (mainlineIds.has(anime.id)) continue;
-      if (!isSideRelation(relation)) continue;
-
-      const node = graphNodeFromAnime(anime, relation);
-      if (!node) continue;
-
-      const key = `${node.shikimoriId}`;
-      if (!sideItemsMap.has(key)) {
-        sideItemsMap.set(key, node);
-      }
-    }
-  }
-
-  const sideItems = [...sideItemsMap.values()].sort((a, b) => {
-    const pa = sidePriority(a);
-    const pb = sidePriority(b);
-    if (pa !== pb) return pa - pb;
-
-    const ya = Number(a.year) || 9999;
-    const yb = Number(b.year) || 9999;
-    if (ya !== yb) return ya - yb;
-
-    return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
+  const mainlineCandidates = filteredNodes.filter(node => {
+    const rel = String(node.relation || '').toLowerCase();
+    return rel === 'current' || rel === 'mainline' || rel === 'sequel' || rel === 'prequel';
   });
 
-  const finalItems = [
-    ...mainline.map(item => ({
-      ...item,
-      relationLabel: item.relation === 'current' ? 'Выбранный тайтл' : 'Основная линия',
-      isCurrent: item.shikimoriId === startShikimoriId
-    })),
-    ...sideItems.map(item => ({
-      ...item,
-      isCurrent: false
-    }))
-  ];
+  const tvMainline = mainlineCandidates.filter(node => String(node.kind || '').toLowerCase() === 'tv');
+  const chosenMainlineBase = tvMainline.length ? tvMainline : mainlineCandidates;
+
+  const mainline = [...chosenMainlineBase]
+    .sort((a, b) => {
+      const yearA = Number(a.year) || 9999;
+      const yearB = Number(b.year) || 9999;
+
+      if (yearA !== yearB) return yearA - yearB;
+
+      const scoreA = mainlinePriority(a);
+      const scoreB = mainlinePriority(b);
+      if (scoreA !== scoreB) return scoreB - scoreA;
+
+      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
+    })
+    .filter((node, index, arr) => arr.findIndex(item => item.shikimoriId === node.shikimoriId) === index)
+    .map(node => ({
+      ...node,
+      relation: node.shikimoriId === startShikimoriId ? 'current' : 'mainline',
+      relationLabel: node.shikimoriId === startShikimoriId ? 'Выбранный тайтл' : 'Основная линия',
+      group: 'main',
+      isCurrent: node.shikimoriId === startShikimoriId
+    }));
+
+  const mainlineIds = new Set(mainline.map(node => node.shikimoriId));
+
+  const extras = filteredNodes
+    .filter(node => !mainlineIds.has(node.shikimoriId))
+    .sort((a, b) => {
+      const scoreA = extraPriority(a);
+      const scoreB = extraPriority(b);
+      if (scoreA !== scoreB) return scoreB - scoreA;
+
+      const yearA = Number(a.year) || 9999;
+      const yearB = Number(b.year) || 9999;
+      if (yearA !== yearB) return yearA - yearB;
+
+      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
+    })
+    .map(node => ({
+      ...node,
+      relationLabel: relationLabel(node.relation),
+      group: 'extra',
+      isCurrent: node.shikimoriId === startShikimoriId
+    }));
+
+  const finalItems = [...mainline, ...extras];
 
   return {
     items: finalItems.map((item, index) => ({
@@ -1063,7 +997,8 @@ async function buildWatchOrder(startShikimoriId) {
       relationLabel: item.relationLabel,
       status: item.status,
       poster: item.poster,
-      isCurrent: !!item.isCurrent
+      isCurrent: !!item.isCurrent,
+      group: item.group || 'main'
     }))
   };
 }
