@@ -31,7 +31,6 @@
     radial-gradient(circle at top right, rgba(255, 132, 168, 0.08) 0%, transparent 24%),
     linear-gradient(180deg, #0b1020 0%, #0a1020 100%);
   color: #fff;
-  text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -52,6 +51,7 @@
 .logo {
   font-size: 18px;
   font-weight: 800;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -68,6 +68,7 @@
   font-size: 20px;
   font-weight: 800;
   line-height: 1.2;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -95,6 +96,10 @@
   font-size: 13px;
   font-weight: 700;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   transition: 0.18s ease;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
 }
@@ -126,6 +131,9 @@
   font-weight: 800;
   font-size: 14px;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 8px 18px rgba(245, 158, 11, 0.22);
 }
 
@@ -172,13 +180,19 @@
 }
 
 .center-search-head h2,
-.selected-anime-panel h2 {
+.selected-anime-panel h2,
+.block h2 {
   margin: 0 0 8px;
   font-size: 17px;
   font-weight: 800;
   line-height: 1.25;
-  color: #fff;
   letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.block h2 {
+  margin-bottom: 12px;
+  font-size: 16px;
 }
 
 .muted-text,
@@ -188,10 +202,8 @@
   font-size: 13px;
   line-height: 1.5;
   font-weight: 400;
-  letter-spacing: 0;
   display: block;
   margin: 0;
-  text-rendering: geometricPrecision;
 }
 
 #hostSearchHint {
@@ -220,9 +232,9 @@
   outline: none;
   background: linear-gradient(180deg, rgba(60, 60, 64, 0.86) 0%, rgba(52, 52, 58, 0.94) 100%);
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 500;
-  line-height: 1;
+  line-height: 1.2;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -240,7 +252,8 @@
   top: 50%;
   right: 18px;
   transform: translateY(-50%);
-  font-size: 28px;
+  font-size: 24px;
+  line-height: 1;
   color: #9c9c9c;
   pointer-events: none;
 }
@@ -313,10 +326,10 @@
 }
 
 .search-result-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #f7f7f7;
-  line-height: 1.3;
+  line-height: 1.35;
   margin-bottom: 4px;
   word-break: break-word;
   letter-spacing: -0.01em;
@@ -325,7 +338,7 @@
 .search-result-meta {
   font-size: 13px;
   color: #b8b8b8;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .search-results-toggle {
@@ -349,7 +362,7 @@
 .selected-anime-info {
   color: #dbe7ff;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .selected-anime-layout {
@@ -365,7 +378,6 @@
   object-fit: cover;
   border-radius: var(--room-radius-md);
   background: #111827;
-  display: block;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 }
 
@@ -373,9 +385,9 @@
   margin: 0 0 10px;
   font-size: 26px;
   font-weight: 800;
-  line-height: 1.2;
-  color: #fff;
+  line-height: 1.18;
   letter-spacing: -0.02em;
+  color: #fff;
 }
 
 .selected-anime-meta {
@@ -383,7 +395,7 @@
   color: #ff8b92;
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .selected-anime-description {
@@ -399,7 +411,7 @@
   color: #9db4ff;
   font-size: 14px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .player-shell {
@@ -499,6 +511,7 @@
 
 .overlay-control-arrow {
   font-size: 11px;
+  line-height: 1;
   opacity: 0.85;
   flex-shrink: 0;
 }
@@ -579,6 +592,7 @@
   padding: 8px 4px;
   min-height: 34px;
   font-weight: 700;
+  line-height: 1.1;
   border-radius: 6px;
 }
 
@@ -594,6 +608,7 @@
   justify-content: center;
   font-size: 11px;
   font-weight: 800;
+  line-height: 1;
 }
 
 .placeholder {
@@ -617,13 +632,14 @@
   font-size: 22px;
   font-weight: 800;
   line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .placeholder p {
   margin: 0;
   color: #b7c2dc;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .placeholder.placeholder-click-through {
@@ -637,6 +653,7 @@
   z-index: 2;
   display: flex;
   justify-content: center;
+  align-items: flex-end;
   padding: 18px;
 }
 
@@ -665,15 +682,6 @@
   min-height: 0;
 }
 
-.block h2 {
-  margin: 0 0 12px;
-  font-size: 16px;
-  font-weight: 800;
-  line-height: 1.25;
-  color: #fff;
-  letter-spacing: -0.01em;
-}
-
 .empty-state {
   padding: 14px;
   border-radius: var(--room-radius-sm);
@@ -698,7 +706,7 @@
   color: #dbe7ff;
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .nickname-row {
@@ -719,6 +727,7 @@
   width: 100%;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .nickname-input::placeholder {
@@ -761,6 +770,7 @@
 }
 
 .user-name {
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
   word-break: break-word;
@@ -848,6 +858,7 @@
 .chat-time {
   color: #aebad6;
   font-size: 12px;
+  line-height: 1.2;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -875,6 +886,7 @@
   color: #fff;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .chat-input-box input::placeholder {
@@ -1223,6 +1235,7 @@
   color: #ffffff;
   font-size: 14px;
   font-weight: 800;
+  line-height: 1;
   cursor: pointer;
   transition: 0.2s ease;
   box-shadow: 0 10px 20px rgba(47, 214, 123, 0.18);
@@ -1266,6 +1279,7 @@
   padding: 12px 14px 10px;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.3;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #9db4ff;
@@ -1289,6 +1303,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 800;
+  line-height: 1.25;
   text-align: left;
   transition: 0.18s ease;
 }
@@ -1345,6 +1360,7 @@
 .watch-order-item-index {
   color: #dfe8ff;
   font-weight: 800;
+  line-height: 1.3;
 }
 
 .watch-order-item-title {
