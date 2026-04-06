@@ -50,19 +50,25 @@
       </div>
     </header>
 
-    <section class="main-hero">
-      <div class="main-card reveal reveal-2">
-        <div class="main-card-badge brand-badge">
-          <span class="brand-chip">Совместный просмотр аниме</span>
+    <main class="main-hero">
+      <section class="main-card reveal reveal-2" aria-labelledby="homeMainTitle">
+        <div class="main-card-top">
+          <div class="main-card-badge brand-badge">
+            <span class="brand-chip">Совместный просмотр аниме</span>
+          </div>
+
+          <div class="main-hero-copy">
+            <h1 id="homeMainTitle" class="main-title">Смотри аниме вместе</h1>
+            <p class="main-subtitle">
+              Создавай комнату, зови друзей по ссылке и смотри аниме синхронно.
+              Или включай одиночный режим и смотри сам.
+            </p>
+          </div>
         </div>
 
-        <h1 class="main-title">Смотри аниме вместе</h1>
-        <p class="main-subtitle">
-          Создавай комнату, зови друзей по ссылке и смотри аниме синхронно.
-          Или включай одиночный режим и смотри сам.
-        </p>
+        <section class="main-form reveal reveal-3" aria-labelledby="homeActionsTitle">
+          <h2 id="homeActionsTitle" class="hidden">Создание комнаты и вход</h2>
 
-        <div class="main-form reveal reveal-3">
           <div class="form-group">
             <label for="username">Ваш ник</label>
             <input
@@ -98,38 +104,46 @@
               Одиночный просмотр
             </button>
           </div>
-        </div>
+        </section>
 
-        <div class="home-info-grid reveal reveal-4">
-          <div class="home-info-card">
-            <div class="home-info-icon">👥</div>
-            <div>
-              <h3>Совместный просмотр</h3>
-              <p>Смотрите одну серию вместе в одной комнате и синхронно обсуждайте происходящее в чате.</p>
-            </div>
-          </div>
+        <section class="home-info-grid reveal reveal-4" aria-labelledby="homeFeaturesTitle">
+          <h2 id="homeFeaturesTitle" class="hidden">Возможности сервиса</h2>
 
-          <div class="home-info-card">
-            <div class="home-info-icon">🔗</div>
-            <div>
-              <h3>Удобное приглашение</h3>
-              <p>Просто отправь ссылку комнаты друзьям — они смогут быстро подключиться к просмотру.</p>
+          <article class="home-info-card">
+            <div class="home-info-card-inner">
+              <div class="home-info-icon" aria-hidden="true">👥</div>
+              <div class="home-info-content">
+                <h3>Совместный просмотр</h3>
+                <p>Смотрите одну серию вместе в одной комнате и синхронно обсуждайте происходящее в чате.</p>
+              </div>
             </div>
-          </div>
+          </article>
 
-          <div class="home-info-card">
-            <div class="home-info-icon">🎬</div>
-            <div>
-              <h3>Соло режим</h3>
-              <p>Если хочешь — смотри аниме один, используя тот же удобный интерфейс без комнаты.</p>
+          <article class="home-info-card">
+            <div class="home-info-card-inner">
+              <div class="home-info-icon" aria-hidden="true">🔗</div>
+              <div class="home-info-content">
+                <h3>Удобное приглашение</h3>
+                <p>Просто отправь ссылку комнаты друзьям — они смогут быстро подключиться к просмотру.</p>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </section>
+          </article>
+
+          <article class="home-info-card">
+            <div class="home-info-card-inner">
+              <div class="home-info-icon" aria-hidden="true">🎬</div>
+              <div class="home-info-content">
+                <h3>Соло режим</h3>
+                <p>Если хочешь — смотри аниме один, используя тот же удобный интерфейс без комнаты.</p>
+              </div>
+            </div>
+          </article>
+        </section>
+      </section>
+    </main>
   </div>
 
-  <div class="floating-menu">
+  <nav class="floating-menu" aria-label="Меню сайта">
     <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog" aria-controls="aboutModal">
       <span class="about-service-icon" aria-hidden="true">i</span>
       <span>О сервисе</span>
@@ -144,7 +158,7 @@
       <span class="about-service-icon thanks-service-icon" aria-hidden="true">✦</span>
       <span>Спасибо за поддержку</span>
     </a>
-  </div>
+  </nav>
 
   <div id="aboutModal" class="about-modal hidden" aria-hidden="true">
     <div class="about-modal-backdrop" id="aboutModalBackdrop"></div>

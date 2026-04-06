@@ -28,9 +28,11 @@
 <body>
   <div class="room-page" id="roomPage">
     <header class="top-bar">
-      <a href="/" class="logo">
-        <img src="/logo.svg" alt="Anivmeste" class="room-logo-image" />
-      </a>
+      <div class="top-bar-left">
+        <a href="/" class="logo" aria-label="На главную">
+          <img src="/logo.svg" alt="Anivmeste" class="room-logo-image" />
+        </a>
+      </div>
 
       <div class="top-center">
         <span id="roomTitle">Комната</span>
@@ -46,9 +48,9 @@
 
     <div class="room-layout room-layout-centered" id="roomLayout">
       <main class="player-area player-area-centered">
-        <section class="center-search-panel">
+        <section class="center-search-panel" aria-labelledby="roomSearchTitle">
           <div class="center-search-head">
-            <h2 class="center-search-title">Поиск аниме</h2>
+            <h2 id="roomSearchTitle" class="center-search-title">Поиск аниме</h2>
             <p id="hostSearchHint" class="muted-text center-search-hint">
               Искать и выбирать тайтл может только хост комнаты
             </p>
@@ -62,28 +64,31 @@
               placeholder="Введите название аниме..."
               autocomplete="off"
             />
-            <div class="center-search-icon">⌕</div>
+            <div class="center-search-icon" aria-hidden="true">⌕</div>
           </div>
 
-          <div id="searchStatus" class="small-note center-search-status"></div>
-          <div id="animeList" class="search-dropdown"></div>
+          <div id="searchStatus" class="small-note center-search-status" aria-live="polite"></div>
+          <div id="animeList" class="search-dropdown" aria-live="polite"></div>
         </section>
 
-        <section class="selected-anime-panel">
-          <h2>Выбранный тайтл</h2>
+        <section class="selected-anime-panel" aria-labelledby="selectedAnimeTitleLabel">
+          <div class="selected-anime-panel-head">
+            <h2 id="selectedAnimeTitleLabel">Выбранный тайтл</h2>
+          </div>
+
           <div id="selectedAnimeInfo" class="selected-anime-info">
             Пока ничего не выбрано
           </div>
         </section>
 
-        <div class="player-shell player-shell-raised">
+        <section class="player-shell player-shell-raised" aria-label="Плеер">
           <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
             <div id="playerTopOverlay" class="player-top-overlay hidden">
               <div class="player-overlay-controls">
                 <div class="overlay-dropdown" id="overlayPlayerDropdown">
                   <button type="button" id="overlayPlayerBtn" class="overlay-control-btn">
                     <span id="overlayPlayerBtnText">Озвучка</span>
-                    <span class="overlay-control-arrow">⌄</span>
+                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
                   </button>
                   <div id="overlayPlayerMenu" class="overlay-dropdown-menu"></div>
                 </div>
@@ -91,7 +96,7 @@
                 <div class="overlay-dropdown" id="overlaySeasonDropdown">
                   <button type="button" id="overlaySeasonBtn" class="overlay-control-btn">
                     <span id="overlaySeasonBtnText">1 сезон</span>
-                    <span class="overlay-control-arrow">⌄</span>
+                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
                   </button>
                   <div id="overlaySeasonMenu" class="overlay-dropdown-menu"></div>
                 </div>
@@ -99,7 +104,7 @@
                 <div class="overlay-dropdown" id="overlayEpisodeDropdown">
                   <button type="button" id="overlayEpisodeBtn" class="overlay-control-btn">
                     <span id="overlayEpisodeBtnText">1 серия</span>
-                    <span class="overlay-control-arrow">⌄</span>
+                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
                   </button>
                   <div id="overlayEpisodeMenu" class="overlay-dropdown-menu overlay-dropdown-menu-episodes"></div>
                 </div>
@@ -107,19 +112,21 @@
             </div>
 
             <div id="placeholder" class="placeholder">
-              <div>
+              <div class="placeholder-content">
                 <h2>Выберите аниме</h2>
                 <p>После выбора тайтла можно менять озвучку, сезоны и серии прямо поверх плеера</p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
       </main>
 
       <aside class="right-sidebar" id="rightSidebar">
-        <section class="block">
-          <h2>Участники</h2>
-          <div class="users-caption">Справа у каждого показывается текущее время просмотра</div>
+        <section class="block participants-block" aria-labelledby="usersBlockTitle">
+          <div class="block-head">
+            <h2 id="usersBlockTitle">Участники</h2>
+            <div class="users-caption">Справа у каждого показывается текущее время просмотра</div>
+          </div>
 
           <div class="nickname-panel">
             <label class="nickname-label" for="nicknameInput">Ваш ник</label>
@@ -139,8 +146,11 @@
           <div id="usersList" class="users-list"></div>
         </section>
 
-        <section class="block chat-block">
-          <h2>Чат</h2>
+        <section class="block chat-block" aria-labelledby="chatBlockTitle">
+          <div class="block-head">
+            <h2 id="chatBlockTitle">Чат</h2>
+          </div>
+
           <div id="chatMessages" class="chat-messages"></div>
 
           <div class="chat-input-box">
