@@ -191,7 +191,6 @@
   letter-spacing: 0;
   display: block;
   margin: 0;
-  vertical-align: baseline;
   text-rendering: geometricPrecision;
 }
 
@@ -443,12 +442,9 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  left: auto;
   z-index: 20;
   display: flex;
-  align-items: flex-start;
   justify-content: flex-end;
-  pointer-events: auto;
   max-width: calc(100% - 20px);
 }
 
@@ -512,7 +508,6 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  left: auto;
   min-width: 130px;
   background: rgba(18, 18, 18, 0.99);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -532,7 +527,6 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  left: auto;
   min-width: 280px;
   max-width: min(420px, calc(100vw - 32px));
   background: rgba(18, 18, 18, 0.99);
@@ -545,9 +539,8 @@
 }
 
 .overlay-dropdown.open .overlay-dropdown-menu-episodes {
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -580,7 +573,7 @@
 }
 
 .overlay-dropdown-item-episode {
-  width: calc((100% - 24px) / 5);
+  width: 100%;
   justify-content: center;
   text-align: center;
   padding: 8px 4px;
@@ -642,7 +635,8 @@
   );
   pointer-events: none;
   z-index: 2;
-  align-items: flex-end;
+  display: flex;
+  justify-content: center;
   padding: 18px;
 }
 
@@ -1077,7 +1071,6 @@
   .player-top-overlay {
     top: 6px;
     right: 6px;
-    left: auto;
     max-width: calc(100% - 12px);
   }
 
@@ -1098,8 +1091,12 @@
     max-width: min(280px, calc(100vw - 20px));
   }
 
+  .overlay-dropdown.open .overlay-dropdown-menu-episodes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+
   .overlay-dropdown-item-episode {
-    width: calc((100% - 15px) / 4);
     min-height: 30px;
     font-size: 11px;
   }

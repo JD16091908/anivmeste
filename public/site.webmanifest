@@ -1,7 +1,9 @@
 {
   "name": "Anivmeste",
   "short_name": "Anivmeste",
+  "description": "Сервис для совместного и одиночного просмотра аниме",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#11192E",
   "theme_color": "#11192E",
@@ -14,7 +16,7 @@
     },
     {
       "src": "/favicon.svg",
-      "sizes": "64x64",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     }
