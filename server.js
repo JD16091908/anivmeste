@@ -163,6 +163,13 @@ function normalizeSearchText(value) {
     .trim();
 }
 
+function tokenizeSearchText(value) {
+  return normalizeSearchText(value)
+    .split(' ')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
 function sanitizeRoomId(value) {
   return String(value || '')
     .trim()
@@ -454,6 +461,20 @@ function normalizeTitle(item) {
   );
 }
 
+function getAllTitles(item) {
+  return [
+    item?.title,
+    item?.ru_title,
+    item?.material_data?.title,
+    item?.material_data?.ru_title,
+    item?.material_data?.anime_title,
+    item?.material_data?.full_title
+  ]
+    .map(value => String(value || '').trim())
+    .filter(Boolean)
+    .filter((value, index, arr) => arr.indexOf(value) === index);
+}
+
 function normalizeDescription(item) {
   return item?.material_data?.description || item?.description || '';
 }
@@ -512,41 +533,88 @@ function isSerial(item) {
   return type.includes('serial');
 }
 
-function titleScore(item, query) {
+function calcSingleTitleScore(normalizedTitle, query) {
   const q = normalizeSearchText(query);
-  const title = normalizeSearchText(normalizeTitle(item));
+  const title = normalizeSearchText(normalizedTitle);
 
   if (!q || !title) return 0;
-  if (!isAllowedAnimeType(item)) return -1000;
 
   let score = 0;
 
-  if (title === q) score += 10000;
-  else if (title.startsWith(q)) score += 5000;
-  else if (title.includes(q)) score += 2500;
+  if (title === q) score += 12000;
+  else if (title.startsWith(q)) score += 7000;
+  else if (title.includes(q)) score += 3200;
 
-  const words = q.split(' ').filter(Boolean);
-  for (const word of words) {
-    if (word.length < 2) continue;
-    if (title === word) score += 1500;
-    else if (title.startsWith(word)) score += 400;
-    else if (title.includes(word)) score += 150;
+  const qTokens = tokenizeSearchText(q);
+  const titleTokens = tokenizeSearchText(title);
+
+  for (const qToken of qTokens) {
+    if (!qToken) continue;
+
+    if (titleTokens.includes(qToken)) {
+      score += qToken.length <= 3 ? 1600 : 2200;
+    }
+
+    for (const titleToken of titleTokens) {
+      if (!titleToken) continue;
+
+      if (titleToken === qToken) {
+        score += 2400;
+      } else if (titleToken.startsWith(qToken)) {
+        score += qToken.length <= 2 ? 1200 : 2200;
+      } else if (titleToken.includes(qToken)) {
+        score += qToken.length <= 2 ? 250 : 700;
+      }
+
+      if (qToken.startsWith(titleToken) && titleToken.length >= 3) {
+        score += 350;
+      }
+    }
+  }
+
+  if (q.length <= 3) {
+    for (const titleToken of titleTokens) {
+      if (titleToken.startsWith(q)) {
+        score += 2600;
+      }
+    }
+  }
+
+  return score;
+}
+
+function titleScore(item, query) {
+  const q = normalizeSearchText(query);
+  if (!q) return 0;
+  if (!isAllowedAnimeType(item)) return -1000;
+
+  const titles = getAllTitles(item);
+  let score = 0;
+
+  for (const title of titles) {
+    score = Math.max(score, calcSingleTitleScore(title, q));
   }
 
   const qYear = q.match(/\b(19|20)\d{2}\b/)?.[0];
   const y = String(normalizeYear(item) || '');
   if (qYear && y === qYear) score += 1000;
 
-  if (isSerial(item)) score += 400;
+  if (isSerial(item)) score += 500;
+  if (getShikimoriId(item)) score += 140;
+  if (normalizePoster(item)) score += 40;
+  if (normalizeDescription(item)) score += 25;
 
   return score;
 }
 
 function makeSearchItem(item, query) {
+  const allTitles = getAllTitles(item);
+
   return {
     animeId: getStableAnimeId(item) || `kodik:${getKodikId(item) || 'unknown'}`,
     animeUrl: String(getStableAnimeId(item) || `kodik:${getKodikId(item) || 'unknown'}`),
     title: normalizeTitle(item),
+    altTitles: allTitles,
     titleKey: normalizeTitleKey(normalizeTitle(item)),
     year: normalizeYear(item),
     description: normalizeDescription(item),
@@ -565,16 +633,35 @@ function dedupeSearchResults(items, query) {
   const strictMap = new Map();
 
   for (const item of items) {
+    const titleCandidates = [item.title, ...(item.altTitles || [])]
+      .map(value => normalizeTitleKey(value))
+      .filter(Boolean);
+
     const itemKey = item.titleKey || normalizeTitleKey(item.title);
     const year = String(item.year || '');
     const groupKey = `${itemKey}|${year}`;
 
-    const goodMatch =
-      itemKey === queryKey ||
-      itemKey.includes(queryKey) ||
-      queryKey.includes(itemKey);
+    const goodMatch = titleCandidates.some(candidate =>
+      candidate === queryKey ||
+      candidate.startsWith(queryKey) ||
+      candidate.includes(queryKey) ||
+      queryKey.startsWith(candidate)
+    );
 
-    if (!goodMatch) continue;
+    if (!goodMatch && queryKey.length >= 2) {
+      const rawCandidates = [item.title, ...(item.altTitles || [])]
+        .map(value => normalizeSearchText(value))
+        .filter(Boolean);
+
+      const softMatch = rawCandidates.some(candidate =>
+        candidate.includes(queryKey) ||
+        tokenizeSearchText(candidate).some(token => token.startsWith(queryKey))
+      );
+
+      if (!softMatch) continue;
+    } else if (!goodMatch && queryKey.length < 2) {
+      continue;
+    }
 
     const existing = strictMap.get(groupKey);
     if (!existing) {
@@ -729,7 +816,7 @@ function strictMatchResults(items, selected) {
   let filtered = items.filter(item => {
     if (!isAllowedAnimeType(item)) return false;
 
-    const itemTitle = normalizeSearchText(normalizeTitle(item));
+    const itemTitles = getAllTitles(item).map(normalizeSearchText);
     const itemYear = String(normalizeYear(item) || '');
     const itemShikimori = String(getShikimoriId(item) || '');
     const itemKodik = String(getKodikId(item) || '');
@@ -740,7 +827,7 @@ function strictMatchResults(items, selected) {
 
     const titleMatch =
       selectedTitle &&
-      (
+      itemTitles.some(itemTitle =>
         itemTitle === selectedTitle ||
         itemTitle.includes(selectedTitle) ||
         selectedTitle.includes(itemTitle)
@@ -754,8 +841,8 @@ function strictMatchResults(items, selected) {
   if (filtered.length > 0) return filtered;
 
   filtered = items.filter(item => {
-    const itemTitle = normalizeSearchText(normalizeTitle(item));
-    return selectedTitle && (
+    const itemTitles = getAllTitles(item).map(normalizeSearchText);
+    return selectedTitle && itemTitles.some(itemTitle =>
       itemTitle === selectedTitle ||
       itemTitle.includes(selectedTitle) ||
       selectedTitle.includes(itemTitle)
@@ -1209,7 +1296,7 @@ app.get('/api/yummy/search', async (req, res) => {
     const mapped = rawResults
       .filter(isAllowedAnimeType)
       .map(item => makeSearchItem(item, query))
-      .filter(item => item.score >= 1200);
+      .filter(item => item.score >= 450);
 
     const deduped = dedupeSearchResults(mapped, query)
       .sort((a, b) => {
@@ -1217,8 +1304,8 @@ app.get('/api/yummy/search', async (req, res) => {
         const bRank = b.score + (b.serialPriority ? 800 : 0);
         return bRank - aRank;
       })
-      .slice(0, 10)
-      .map(({ score, serialPriority, titleKey, ...item }) => item);
+      .slice(0, 15)
+      .map(({ score, serialPriority, titleKey, altTitles, ...item }) => item);
 
     res.json(deduped);
   } catch (error) {
@@ -1244,7 +1331,9 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
     }
 
     const exactTitle = normalizeSearchText(selected.title);
-    const first = results.find(item => normalizeSearchText(normalizeTitle(item)) === exactTitle) || results[0];
+    const first = results.find(item =>
+      getAllTitles(item).some(title => normalizeSearchText(title) === exactTitle)
+    ) || results[0];
 
     const restriction = isAnimeBlockedForRequest(req, selected, first);
 
