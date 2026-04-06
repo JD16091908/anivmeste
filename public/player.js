@@ -10,6 +10,15 @@ window.PlayerModule = (() => {
     return url;
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
   function createIframe({ src, title = 'Без названия' } = {}) {
     const iframe = document.createElement('iframe');
     iframe.src = normalizeUrl(src);
@@ -18,6 +27,7 @@ window.PlayerModule = (() => {
     iframe.setAttribute('allowfullscreen', '');
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('loading', 'eager');
+    iframe.setAttribute('referrerpolicy', 'origin');
     iframe.style.display = 'block';
     iframe.style.width = '100%';
     iframe.style.height = '100%';
@@ -67,67 +77,66 @@ window.PlayerModule = (() => {
     container.appendChild(wrapper);
   }
 
-  function escapeHtml(value) {
-    return String(value ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
-
-  // ✨ Новая логика для работы с официальным Kodik API
   function sendKodikCommand(method, params = {}) {
-    if (!currentIframe?.contentWindow) return;
+    if (!currentIframe?.contentWindow) return false;
 
-    currentIframe.contentWindow.postMessage(JSON.stringify({
-      source: 'external',
-      method,
-      params
-    }), '*');
+    try {
+      currentIframe.contentWindow.postMessage(JSON.stringify({
+        source: 'external',
+        method,
+        params
+      }), '*');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function play() {
-    sendKodikCommand('play');
+    return sendKodikCommand('play');
   }
 
   function pause() {
-    sendKodikCommand('pause');
+    return sendKodikCommand('pause');
   }
 
   function seek(time) {
-    sendKodikCommand('setTime', { time });
+    const safeTime = Number(time);
+    if (Number.isNaN(safeTime) || safeTime < 0) return false;
+    return sendKodikCommand('setTime', { time: safeTime });
   }
 
   function setHostState(state) {
-    isHost = state;
+    isHost = !!state;
   }
 
   function onVideoChanged(callback) {
-    onVideoChangedCallback = callback;
+    onVideoChangedCallback = typeof callback === 'function' ? callback : null;
   }
 
   function onEpisodeEnded(callback) {
-    onEndedCallback = callback;
+    onEndedCallback = typeof callback === 'function' ? callback : null;
   }
 
-  // Глобальный обработчик событий от Kodik
+  function goToNextEpisode() {
+    return sendKodikCommand('nextEpisode');
+  }
+
   window.addEventListener('message', (event) => {
     if (!currentIframe || event.source !== currentIframe.contentWindow) return;
 
     let data;
     try {
-      data = JSON.parse(event.data);
+      data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
     } catch {
       return;
     }
 
-    if (data.type !== 'kodik:api:public') return;
+    if (!data || data.type !== 'kodik:api:public') return;
 
     const eventName = data.event;
-    const payload = data.payload;
+    const payload = data.payload || {};
 
-    // ✅ Хост переключил серию прямо внутри плеера - переключаем всем
     if (eventName === 'change:episode') {
       if (isHost && onVideoChangedCallback) {
         onVideoChangedCallback({
@@ -139,12 +148,12 @@ window.PlayerModule = (() => {
       }
 
       if (!isHost) {
-        // Обычные пользователи не могут переключать серию сами
-        setTimeout(() => sendKodikCommand('setEpisode', payload), 10);
+        setTimeout(() => {
+          sendKodikCommand('setEpisode', payload);
+        }, 10);
       }
     }
 
-    // ✅ Хост переключил озвучку - переключаем всем
     if (eventName === 'change:translation') {
       if (isHost && onVideoChangedCallback) {
         onVideoChangedCallback({
@@ -156,26 +165,22 @@ window.PlayerModule = (() => {
       }
 
       if (!isHost) {
-        // Обычные пользователи не могут переключать озвучку сами
-        setTimeout(() => sendKodikCommand('setTranslation', payload), 10);
+        setTimeout(() => {
+          sendKodikCommand('setTranslation', payload);
+        }, 10);
       }
     }
 
-    // ✅ Серия закончилась
     if (eventName === 'ended') {
-      if (onEndedCallback) onEndedCallback();
+      if (onEndedCallback) {
+        onEndedCallback();
+      }
     }
 
-    // ✅ Магическая фича: автоматическая коррекция синхронизации после рекламы
     if (eventName === 'advertisement:end') {
       window.dispatchEvent(new CustomEvent('player:advertisement-ended'));
     }
-
   });
-
-  function goToNextEpisode() {
-    sendKodikCommand('nextEpisode');
-  }
 
   return {
     normalizeUrl,
@@ -183,8 +188,6 @@ window.PlayerModule = (() => {
     clearPlayer,
     mountIframe,
     showPlaceholder,
-
-    // Новые публичные методы
     play,
     pause,
     seek,

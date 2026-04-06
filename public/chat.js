@@ -9,9 +9,10 @@ window.ChatModule = (() => {
   function formatMessageWithLinks(text) {
     const escaped = escapeHtml(text);
     const urlRegex = /(https?:\/\/[^\s<]+)/g;
+
     return escaped.replace(
       urlRegex,
-      '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: #8db8ff; text-decoration: none;">$1</a>'
+      '<a href="$1" target="_blank" rel="noopener noreferrer nofollow" style="color: #8db8ff; text-decoration: none;">$1</a>'
     );
   }
 
