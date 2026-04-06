@@ -528,16 +528,27 @@
 }
 
 .overlay-dropdown-menu-episodes {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
   min-width: 280px;
   max-width: min(420px, calc(100vw - 32px));
-  display: none;
+  background: rgba(18, 18, 18, 0.99);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--room-radius-xs);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .overlay-dropdown.open .overlay-dropdown-menu-episodes {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 6px;
-  align-content: start;
 }
 
 .overlay-dropdown-item {
@@ -569,6 +580,7 @@
 }
 
 .overlay-dropdown-item-episode {
+  width: calc((100% - 24px) / 5);
   justify-content: center;
   text-align: center;
   padding: 8px 4px;
@@ -1086,12 +1098,8 @@
     max-width: min(280px, calc(100vw - 20px));
   }
 
-  .overlay-dropdown.open .overlay-dropdown-menu-episodes {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 5px;
-  }
-
   .overlay-dropdown-item-episode {
+    width: calc((100% - 15px) / 4);
     min-height: 30px;
     font-size: 11px;
   }
