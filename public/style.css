@@ -16,6 +16,7 @@
   --brand-gradient-soft: linear-gradient(135deg, rgba(123, 180, 255, 0.16), rgba(255, 132, 168, 0.16));
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.42);
   --shadow-md: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --site-font: "Segoe UI", Roboto, Arial, Helvetica, sans-serif;
 }
 
 *,
@@ -34,6 +35,8 @@ html {
   scroll-behavior: smooth;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
 }
 
 body {
@@ -44,14 +47,52 @@ body {
     radial-gradient(circle at bottom right, rgba(145, 128, 255, 0.12), transparent 24%),
     linear-gradient(180deg, var(--bg-main) 0%, var(--bg-main-2) 100%);
   color: var(--text-main);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--site-font);
   font-size: 16px;
   line-height: 1.5;
-  font-kerning: normal;
-  font-feature-settings: "kern" 1;
-  font-variant-ligatures: common-ligatures;
+  font-weight: 400;
+  letter-spacing: 0;
+  word-spacing: 0;
+  font-kerning: none;
+  font-feature-settings: normal;
+  font-variant-ligatures: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+button,
+input,
+textarea,
+select,
+option {
+  font-family: var(--site-font);
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0;
+  font-kerning: none;
+  font-feature-settings: normal;
+  font-variant-ligatures: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+a,
+div,
+label,
+small,
+strong,
+b,
+li,
+td,
+th {
+  text-rendering: geometricPrecision;
 }
 
 a {
@@ -64,7 +105,15 @@ input,
 textarea,
 select {
   font: inherit;
-  letter-spacing: normal;
+  letter-spacing: 0;
+}
+
+input,
+textarea,
+select,
+button {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 img,
@@ -177,7 +226,7 @@ svg {
   font-size: clamp(38px, 5vw, 58px);
   line-height: 1.06;
   font-weight: 900;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.02em;
   color: var(--text-main);
 }
 
@@ -226,6 +275,8 @@ svg {
   background: rgba(15, 22, 38, 0.96);
   color: #ffffff;
   line-height: 1.2;
+  font-size: 16px;
+  font-weight: 400;
   transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
 }
 
@@ -255,7 +306,7 @@ svg {
   font-size: 15px;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: normal;
+  letter-spacing: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -355,7 +406,7 @@ svg {
   line-height: 1.24;
   font-weight: 800;
   color: #ffffff;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .home-info-card p {
@@ -542,7 +593,7 @@ svg {
   line-height: 1.28;
   font-weight: 800;
   color: #ffffff;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .about-modal-card {
@@ -619,6 +670,7 @@ svg {
   line-height: 1.25;
   font-weight: 800;
   color: #ffffff;
+  letter-spacing: 0;
 }
 
 .support-card-title-wrap p {

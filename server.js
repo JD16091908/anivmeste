@@ -27,9 +27,66 @@ const ROOM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 const roomCreationLog = new Map();
 
 const SEARCH_ALIASES_FILE = path.join(__dirname, 'search-aliases.json');
-const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
-const SEARCH_CACHE_MAX_ENTRIES = 150;
+const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 300;
 const searchResponseCache = new Map();
+const dnsAvailabilityCache = new Map();
+
+const BUILTIN_SEARCH_ALIASES = {
+  'хантер': [
+    'хантер х хантер',
+    'хантер x хантер',
+    'охотник х охотник',
+    'охотник x охотник',
+    'hunter x hunter',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'хантер х хантер': [
+    'охотник х охотник',
+    'hunter x hunter',
+    'hunter × hunter',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'хантер x хантер': [
+    'охотник x охотник',
+    'охотник х охотник',
+    'hunter x hunter',
+    'hunter × hunter',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'охотник х охотник': [
+    'хантер х хантер',
+    'хантер x хантер',
+    'hunter x hunter',
+    'hunter × hunter',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'охотник x охотник': [
+    'хантер x хантер',
+    'хантер х хантер',
+    'hunter x hunter',
+    'hunter × hunter',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'hunter x hunter': [
+    'hunter × hunter',
+    'хантер х хантер',
+    'охотник х охотник',
+    'охотник x охотник',
+    'hunter x hunter 2011',
+    'hunter x hunter 1999'
+  ],
+  'hunter × hunter': [
+    'hunter x hunter',
+    'хантер х хантер',
+    'охотник х охотник'
+  ]
+};
 
 const TRANSLIT_MAP = new Map([
   ['а', 'a'], ['б', 'b'], ['в', 'v'], ['г', 'g'], ['д', 'd'], ['е', 'e'], ['ё', 'e'],
@@ -173,6 +230,7 @@ function normalizeSearchText(value) {
   return String(value || '')
     .toLowerCase()
     .replace(/ё/g, 'е')
+    .replace(/[×х]/g, ' x ')
     .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -196,6 +254,8 @@ function transliterateRuToLat(value) {
 
 function transliterateLatToRuApprox(value) {
   return normalizeSearchText(value)
+    .replace(/hunter/g, 'хантер')
+    .replace(/x/g, ' х ')
     .replace(/shch/g, 'щ')
     .replace(/sch/g, 'щ')
     .replace(/yo/g, 'е')
@@ -229,10 +289,10 @@ function transliterateLatToRuApprox(value) {
     .replace(/f/g, 'ф')
     .replace(/h/g, 'х')
     .replace(/w/g, 'в')
-    .replace(/x/g, 'кс')
     .replace(/q/g, 'к')
     .replace(/c/g, 'к')
     .replace(/j/g, 'дж')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -240,20 +300,54 @@ function dedupeArray(values) {
   return [...new Set((values || []).filter(Boolean))];
 }
 
+function createBuiltinAliasesMap() {
+  const aliases = new Map();
+
+  for (const [key, values] of Object.entries(BUILTIN_SEARCH_ALIASES)) {
+    const normalizedKey = normalizeSearchText(key);
+    const normalizedValues = dedupeArray(
+      (values || []).map(item => normalizeSearchText(item)).filter(Boolean)
+    );
+
+    if (normalizedKey) {
+      aliases.set(normalizedKey, normalizedValues);
+    }
+  }
+
+  return aliases;
+}
+
+function mergeAliasMaps(primary, fallback) {
+  const result = new Map();
+
+  for (const [key, values] of fallback.entries()) {
+    result.set(key, [...values]);
+  }
+
+  for (const [key, values] of primary.entries()) {
+    const existing = result.get(key) || [];
+    result.set(key, dedupeArray([...existing, ...values]));
+  }
+
+  return result;
+}
+
 function loadSearchAliases() {
   try {
+    const builtin = createBuiltinAliasesMap();
+
     if (!fs.existsSync(SEARCH_ALIASES_FILE)) {
-      return new Map();
+      return builtin;
     }
 
     const raw = fs.readFileSync(SEARCH_ALIASES_FILE, 'utf8');
     const parsed = JSON.parse(raw);
 
     if (!parsed || typeof parsed !== 'object') {
-      return new Map();
+      return builtin;
     }
 
-    const aliases = new Map();
+    const fileAliases = new Map();
 
     for (const [key, values] of Object.entries(parsed)) {
       const normalizedKey = normalizeSearchText(key);
@@ -263,13 +357,13 @@ function loadSearchAliases() {
         ? dedupeArray(values.map(item => normalizeSearchText(item)))
         : [];
 
-      aliases.set(normalizedKey, normalizedValues);
+      fileAliases.set(normalizedKey, normalizedValues);
     }
 
-    return aliases;
+    return mergeAliasMaps(fileAliases, builtin);
   } catch (error) {
     console.error('SEARCH ALIASES LOAD ERROR:', error.message);
-    return new Map();
+    return createBuiltinAliasesMap();
   }
 }
 
@@ -297,15 +391,20 @@ function expandQueryVariants(query) {
   if (!normalized) return [];
 
   variants.add(normalized);
+  variants.add(normalized.replace(/\s+/g, ''));
 
   const translitRuToLat = transliterateRuToLat(normalized);
   const translitLatToRu = transliterateLatToRuApprox(normalized);
 
-  if (translitRuToLat) variants.add(translitRuToLat);
-  if (translitLatToRu) variants.add(translitLatToRu);
+  if (translitRuToLat) {
+    variants.add(translitRuToLat);
+    variants.add(translitRuToLat.replace(/\s+/g, ''));
+  }
 
-  const compact = normalized.replace(/\s+/g, '');
-  if (compact) variants.add(compact);
+  if (translitLatToRu) {
+    variants.add(translitLatToRu);
+    variants.add(translitLatToRu.replace(/\s+/g, ''));
+  }
 
   const aliasDirect = SEARCH_ALIASES_MAP.get(normalized);
   if (aliasDirect) {
@@ -325,7 +424,7 @@ function expandQueryVariants(query) {
     }
   }
 
-  return [...variants].filter(Boolean).slice(0, 16);
+  return [...variants].filter(Boolean).slice(0, 12);
 }
 
 function getSearchCacheKey(query) {
@@ -606,10 +705,20 @@ function isAnimeBlockedForRequest(req, selected = {}, foundItem = null) {
 }
 
 async function checkHostAvailable(hostname) {
+  const now = Date.now();
+  const cached = dnsAvailabilityCache.get(hostname);
+
+  if (cached && now - cached.checkedAt < 60 * 1000) {
+    return cached.ok;
+  }
+
   try {
     const r = await dns.lookup(hostname);
-    return !!r?.address;
+    const ok = !!r?.address;
+    dnsAvailabilityCache.set(hostname, { ok, checkedAt: now });
+    return ok;
   } catch {
+    dnsAvailabilityCache.set(hostname, { ok: false, checkedAt: now });
     return false;
   }
 }
@@ -619,11 +728,19 @@ async function kodikGet(endpoint, params = {}) {
     throw new Error('DNS failed for kodik-api.com');
   }
 
-  const url = `${KODIK_API_BASE}${endpoint}?${new URLSearchParams({
+  const queryParams = {
     token: KODIK_TOKEN,
-    limit: '1000',
+    limit: '60',
     ...params
-  }).toString()}`;
+  };
+
+  Object.keys(queryParams).forEach(key => {
+    if (queryParams[key] === undefined || queryParams[key] === null || queryParams[key] === '') {
+      delete queryParams[key];
+    }
+  });
+
+  const url = `${KODIK_API_BASE}${endpoint}?${new URLSearchParams(queryParams).toString()}`;
 
   const response = await fetch(url, {
     method: 'GET',
@@ -765,10 +882,24 @@ function isSerial(item) {
   return type.includes('serial');
 }
 
-function calcSingleTitleScore(normalizedTitle, queryVariants) {
+function hasFullTokenMatch(title, queryTokens) {
+  const titleTokens = tokenizeSearchText(title);
+  if (!queryTokens.length || !titleTokens.length) return false;
+
+  return queryTokens.every(qToken =>
+    titleTokens.some(tToken =>
+      tToken === qToken ||
+      tToken.startsWith(qToken) ||
+      qToken.startsWith(tToken)
+    )
+  );
+}
+
+function calcSingleTitleScore(normalizedTitle, queryVariants, normalizedQuery) {
   let score = 0;
   const title = normalizeSearchText(normalizedTitle);
   const titleLat = transliterateRuToLat(title);
+  const queryTokens = tokenizeSearchText(normalizedQuery);
 
   if (!title) return 0;
 
@@ -786,9 +917,9 @@ function calcSingleTitleScore(normalizedTitle, queryVariants) {
       for (const titleForm of titleForms) {
         if (!qForm || !titleForm) continue;
 
-        if (titleForm === qForm) score = Math.max(score, 15000);
-        else if (titleForm.startsWith(qForm)) score = Math.max(score, 9000);
-        else if (titleForm.includes(qForm)) score = Math.max(score, 4500);
+        if (titleForm === qForm) score = Math.max(score, 25000);
+        else if (titleForm.startsWith(qForm)) score = Math.max(score, 16000);
+        else if (titleForm.includes(qForm)) score = Math.max(score, 8000);
 
         const qTokens = tokenizeSearchText(qForm);
         const titleTokens = tokenizeSearchText(titleForm);
@@ -799,45 +930,62 @@ function calcSingleTitleScore(normalizedTitle, queryVariants) {
           if (!qToken) continue;
 
           if (titleTokens.includes(qToken)) {
-            tokenScore += qToken.length <= 3 ? 1800 : 2600;
+            tokenScore += qToken.length <= 3 ? 2200 : 3400;
           }
 
           for (const titleToken of titleTokens) {
             if (!titleToken) continue;
 
             if (titleToken === qToken) {
-              tokenScore += 2600;
+              tokenScore += 3600;
             } else if (titleToken.startsWith(qToken)) {
-              tokenScore += qToken.length <= 2 ? 1500 : 2600;
+              tokenScore += qToken.length <= 2 ? 1300 : 2600;
             } else if (titleToken.includes(qToken)) {
-              tokenScore += qToken.length <= 2 ? 400 : 900;
-            }
-
-            if (qToken.startsWith(titleToken) && titleToken.length >= 3) {
-              tokenScore += 450;
+              tokenScore += qToken.length <= 2 ? 250 : 700;
             }
 
             const lenDiff = Math.abs(titleToken.length - qToken.length);
             if (qToken.length >= 4 && titleToken.length >= 4 && lenDiff <= 2) {
               const dist = levenshteinDistance(qToken, titleToken);
-              if (dist === 1) tokenScore += 1900;
-              else if (dist === 2) tokenScore += 900;
+              if (dist === 1) tokenScore += 1400;
+              else if (dist === 2) tokenScore += 500;
             }
           }
         }
 
-        if (qForm.length <= 3) {
-          for (const titleToken of titleTokens) {
-            if (titleToken.startsWith(qForm)) {
-              tokenScore += 3200;
-            }
+        if (hasFullTokenMatch(titleForm, queryTokens)) {
+          tokenScore += 10000;
+        }
+
+        if (
+          normalizedQuery.includes('хантер') ||
+          normalizedQuery.includes('hunter') ||
+          normalizedQuery.includes('охотник')
+        ) {
+          const hxhPatterns = [
+            'hunter x hunter',
+            'хантер x хантер',
+            'охотник x охотник'
+          ];
+
+          const titleNormalized = normalizeSearchText(titleForm);
+
+          if (hxhPatterns.some(pattern => titleNormalized.includes(pattern))) {
+            tokenScore += 20000;
+          }
+
+          if (
+            titleNormalized.includes('городской охотник') ||
+            titleNormalized.includes('city hunter')
+          ) {
+            tokenScore -= 15000;
           }
         }
 
         if (qForm.length >= 4 && titleForm.length >= 4) {
           const distWhole = levenshteinDistance(qForm, titleForm);
-          if (distWhole === 1) tokenScore += 2200;
-          else if (distWhole === 2) tokenScore += 1000;
+          if (distWhole === 1) tokenScore += 1400;
+          else if (distWhole === 2) tokenScore += 600;
         }
 
         score = Math.max(score, tokenScore);
@@ -856,17 +1004,17 @@ function titleScore(item, queryVariants, normalizedQuery) {
   let score = 0;
 
   for (const title of titles) {
-    score = Math.max(score, calcSingleTitleScore(title, queryVariants));
+    score = Math.max(score, calcSingleTitleScore(title, queryVariants, normalizedQuery));
   }
 
   const qYear = normalizedQuery.match(/\b(19|20)\d{2}\b/)?.[0];
   const y = String(normalizeYear(item) || '');
   if (qYear && y === qYear) score += 1000;
 
-  if (isSerial(item)) score += 500;
-  if (getShikimoriId(item)) score += 150;
-  if (normalizePoster(item)) score += 40;
-  if (normalizeDescription(item)) score += 25;
+  if (isSerial(item)) score += 700;
+  if (getShikimoriId(item)) score += 200;
+  if (normalizePoster(item)) score += 60;
+  if (normalizeDescription(item)) score += 30;
 
   return score;
 }
@@ -914,20 +1062,7 @@ function dedupeSearchResults(items, query, queryVariants) {
       )
     );
 
-    if (!goodMatch) {
-      const rawCandidates = [item.title, ...(item.altTitles || [])]
-        .map(value => normalizeSearchText(value))
-        .filter(Boolean);
-
-      const rawGoodMatch = rawCandidates.some(candidate =>
-        queryVariants.some(q =>
-          candidate.includes(q) ||
-          tokenizeSearchText(candidate).some(token => token.startsWith(q))
-        )
-      );
-
-      if (!rawGoodMatch && item.score < 1200) continue;
-    }
+    if (!goodMatch && item.score < 1200) continue;
 
     const existing = strictMap.get(groupKey);
     if (!existing) {
@@ -1206,22 +1341,15 @@ async function fetchAnimeBySelection(selected) {
   }
 
   if (selected?.title) {
-    const searchVariants = expandQueryVariants(selected.title);
+    const searchVariants = expandQueryVariants(selected.title).slice(0, 3);
     const requests = [];
 
-    for (const variant of searchVariants.slice(0, 6)) {
+    for (const variant of searchVariants) {
       requests.push(
         kodikGet('/search', {
           title: variant,
           with_material_data: 'true',
           with_episodes: 'true',
-          types: 'anime-serial,anime'
-        }),
-        kodikGet('/list', {
-          title: variant,
-          with_material_data: 'true',
-          with_episodes: 'true',
-          year: selected.year || undefined,
           types: 'anime-serial,anime'
         })
       );
@@ -1559,25 +1687,17 @@ app.get('/api/yummy/search', async (req, res) => {
     }
 
     const normalizedQuery = normalizeSearchText(query);
-    const expandedQueries = expandQueryVariants(query).slice(0, 6);
-    const requests = [];
+    const expandedQueries = expandQueryVariants(query);
+    const primaryQueries = expandedQueries.slice(0, 3);
 
-    for (const q of expandedQueries) {
-      requests.push(
-        kodikGet('/search', {
-          title: q,
-          with_material_data: 'true',
-          with_episodes: 'true',
-          types: 'anime-serial,anime'
-        }),
-        kodikGet('/list', {
-          title: q,
-          with_material_data: 'true',
-          with_episodes: 'true',
-          types: 'anime-serial,anime'
-        })
-      );
-    }
+    const requests = primaryQueries.map(q =>
+      kodikGet('/search', {
+        title: q,
+        with_material_data: 'true',
+        with_episodes: 'false',
+        types: 'anime-serial,anime'
+      })
+    );
 
     const responses = await Promise.all(requests);
 
@@ -1591,7 +1711,7 @@ app.get('/api/yummy/search', async (req, res) => {
     const mapped = rawResults
       .filter(isAllowedAnimeType)
       .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
-      .filter(item => item.score >= 250);
+      .filter(item => item.score >= 500);
 
     const deduped = dedupeSearchResults(mapped, query, expandedQueries)
       .sort((a, b) => {
