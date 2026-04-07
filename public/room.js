@@ -28,6 +28,11 @@ const USER_KEY_STORAGE = 'anivmeste_user_key';
 const USERNAME_STORAGE = 'username';
 const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
 
+const SEARCH_MIN_LENGTH = 2;
+const SEARCH_DEBOUNCE_MS = 350;
+const SEARCH_CLIENT_CACHE_TTL_MS = 2 * 60 * 1000;
+const SEARCH_CLIENT_CACHE_MAX = 50;
+
 const RANDOM_NICK_ADJECTIVES = [
   'Swift', 'Silent', 'Crimson', 'Silver', 'Golden', 'Shadow', 'Lunar', 'Solar', 'Misty', 'Stormy',
   'Frozen', 'Burning', 'Shining', 'Dark', 'Bright', 'Wild', 'Calm', 'Rapid', 'Lucky', 'Cosmic',
@@ -55,6 +60,14 @@ function sanitizeUsername(name) {
     .trim()
     .replace(/\s+/g, ' ')
     .slice(0, 30);
+}
+
+function normalizeSearchQuery(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/\s+/g, ' ');
 }
 
 function buildAllNicknameVariants() {
@@ -150,6 +163,10 @@ let lastForcedSyncAt = 0;
 let audioContext = null;
 let latestRoomUsers = [];
 let usersRenderTicker = null;
+
+let activeSearchAbortController = null;
+let lastRenderedSearchSignature = '';
+const clientSearchCache = new Map();
 
 let currentState = {
   animeId: null,
@@ -411,6 +428,60 @@ function sortSearchResults(items) {
     if (yearA !== yearB) return yearA - yearB;
     return String(a?.title || '').localeCompare(String(b?.title || ''), 'ru');
   });
+}
+
+function buildSearchSignature(items, expanded) {
+  const ids = (items || []).map(item => `${item.animeId || ''}:${item.title || ''}:${item.year || ''}`).join('|');
+  return `${expanded ? '1' : '0'}::${ids}`;
+}
+
+function pruneClientSearchCache() {
+  const now = Date.now();
+
+  for (const [key, entry] of clientSearchCache.entries()) {
+    if (!entry || now - entry.createdAt > SEARCH_CLIENT_CACHE_TTL_MS) {
+      clientSearchCache.delete(key);
+    }
+  }
+
+  if (clientSearchCache.size <= SEARCH_CLIENT_CACHE_MAX) return;
+
+  const entries = [...clientSearchCache.entries()]
+    .sort((a, b) => a[1].createdAt - b[1].createdAt);
+
+  while (entries.length && clientSearchCache.size > SEARCH_CLIENT_CACHE_MAX) {
+    const [oldestKey] = entries.shift();
+    clientSearchCache.delete(oldestKey);
+  }
+}
+
+function getClientCachedSearch(query) {
+  pruneClientSearchCache();
+  const entry = clientSearchCache.get(query);
+  if (!entry) return null;
+
+  if (Date.now() - entry.createdAt > SEARCH_CLIENT_CACHE_TTL_MS) {
+    clientSearchCache.delete(query);
+    return null;
+  }
+
+  return entry.data;
+}
+
+function setClientCachedSearch(query, data) {
+  pruneClientSearchCache();
+  clientSearchCache.set(query, {
+    createdAt: Date.now(),
+    data
+  });
+}
+
+function clearSearchResultsUi() {
+  if (animeList) {
+    animeList.innerHTML = '';
+    animeList.classList.remove('visible');
+  }
+  lastRenderedSearchSignature = '';
 }
 
 function getUniquePlayers(videos) {
@@ -761,7 +832,7 @@ function applyPlaybackState(playback) {
     if (targetTime !== null) {
       const localTime = Number(currentState.playback.currentTime);
       const safeLocalTime = Number.isNaN(localTime) ? null : localTime;
-      const diff = safeLocalTime === null ? Infinity : Math.abs(safeLocalTime - targetTime);
+      const diff = safeLocalTime === null ? Infinity : Math.abs(localTime - targetTime);
 
       if (diff > 1.6) {
         applySeekIfNeeded(targetTime, true);
@@ -1244,14 +1315,17 @@ function renderAnimeResults(items) {
   if (!animeList) return;
 
   if (!items.length) {
-    animeList.innerHTML = '';
-    animeList.classList.remove('visible');
+    clearSearchResultsUi();
     return;
   }
 
-  const sortedItems = sortSearchResults(items);
-  const visibleItems = showAllSearchResults ? sortedItems : sortedItems.slice(0, 5);
-  const needToggle = sortedItems.length > 5;
+  const visibleItems = showAllSearchResults ? items : items.slice(0, 5);
+  const needToggle = items.length > 5;
+
+  const nextSignature = buildSearchSignature(items, showAllSearchResults);
+  if (lastRenderedSearchSignature === nextSignature) {
+    return;
+  }
 
   animeList.innerHTML = `
     ${visibleItems.map((item, index) => `
@@ -1276,18 +1350,19 @@ function renderAnimeResults(items) {
   `;
 
   animeList.classList.add('visible');
+  lastRenderedSearchSignature = nextSignature;
 
   animeList.querySelectorAll('.search-result-item').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', async () => {
-      const sortedNow = sortSearchResults(lastSearchResults);
-      const visibleNow = showAllSearchResults ? sortedNow : sortedNow.slice(0, 5);
+      const visibleNow = showAllSearchResults ? lastSearchResults : lastSearchResults.slice(0, 5);
       const index = Number(btn.dataset.index);
       const item = visibleNow[index];
       if (!item) return;
 
       animeList.classList.remove('visible');
       animeList.innerHTML = '';
+      lastRenderedSearchSignature = '';
 
       await selectAnime(item);
     });
@@ -1298,6 +1373,7 @@ function renderAnimeResults(items) {
     toggleBtn.disabled = !canControl();
     toggleBtn.addEventListener('click', () => {
       showAllSearchResults = !showAllSearchResults;
+      lastRenderedSearchSignature = '';
       renderAnimeResults(lastSearchResults);
     });
   }
@@ -1502,52 +1578,89 @@ function launchEpisode(episode, anime) {
   }
 }
 
+async function fetchSearchResults(rawQuery, token) {
+  const normalizedQuery = normalizeSearchQuery(rawQuery);
+
+  const cached = getClientCachedSearch(normalizedQuery);
+  if (cached) {
+    if (token !== latestSearchToken) return;
+    lastSearchResults = cached;
+    renderAnimeResults(lastSearchResults);
+    if (searchStatus) {
+      searchStatus.textContent = lastSearchResults.length
+        ? `Найдено: ${lastSearchResults.length}`
+        : 'Ничего не найдено';
+    }
+    return;
+  }
+
+  if (activeSearchAbortController) {
+    activeSearchAbortController.abort();
+  }
+
+  activeSearchAbortController = new AbortController();
+
+  const response = await fetch(`/api/yummy/search?q=${encodeURIComponent(rawQuery)}`, {
+    signal: activeSearchAbortController.signal,
+    headers: {
+      'Accept': 'application/json'
+    }
+  });
+
+  const data = await readJsonSafely(response);
+
+  if (token !== latestSearchToken) return;
+  if (!response.ok) throw new Error(data?.error || 'Ошибка поиска');
+
+  const prepared = sortSearchResults(Array.isArray(data) ? data : []);
+  setClientCachedSearch(normalizedQuery, prepared);
+
+  lastSearchResults = prepared;
+  renderAnimeResults(lastSearchResults);
+
+  if (searchStatus) {
+    searchStatus.textContent = lastSearchResults.length
+      ? `Найдено: ${lastSearchResults.length}`
+      : 'Ничего не найдено';
+  }
+}
+
 async function searchAnime(query) {
   const rawQuery = String(query || '').trim();
+  const normalizedQuery = normalizeSearchQuery(rawQuery);
 
-  if (!rawQuery || rawQuery.length < 2) {
-    if (animeList) {
-      animeList.innerHTML = '';
-      animeList.classList.remove('visible');
+  if (!rawQuery || normalizedQuery.length < SEARCH_MIN_LENGTH) {
+    latestSearchToken += 1;
+
+    if (activeSearchAbortController) {
+      activeSearchAbortController.abort();
+      activeSearchAbortController = null;
     }
+
+    lastSearchResults = [];
+    showAllSearchResults = false;
+    clearSearchResultsUi();
+
     if (searchStatus) searchStatus.textContent = 'Введите минимум 2 символа';
     return;
   }
 
   if (!canControl()) return;
 
-  if (searchStatus) searchStatus.textContent = 'Поиск...';
-  showAllSearchResults = false;
   latestSearchToken += 1;
   const token = latestSearchToken;
+  showAllSearchResults = false;
 
-  if (animeList) {
-    animeList.innerHTML = '';
-    animeList.classList.remove('visible');
-  }
+  if (searchStatus) searchStatus.textContent = 'Поиск...';
 
   try {
-    const response = await fetch(`/api/yummy/search?q=${encodeURIComponent(rawQuery)}`);
-    const data = await readJsonSafely(response);
-
-    if (token !== latestSearchToken) return;
-    if (!response.ok) throw new Error(data?.error || 'Ошибка поиска');
-
-    lastSearchResults = sortSearchResults(Array.isArray(data) ? data : []);
-    renderAnimeResults(lastSearchResults);
-
-    if (searchStatus) {
-      searchStatus.textContent = lastSearchResults.length
-        ? `Найдено: ${lastSearchResults.length}`
-        : 'Ничего не найдено';
-    }
+    await fetchSearchResults(rawQuery, token);
   } catch (error) {
     if (token !== latestSearchToken) return;
+    if (error?.name === 'AbortError') return;
+
     if (searchStatus) searchStatus.textContent = error.message || 'Ошибка поиска';
-    if (animeList) {
-      animeList.innerHTML = '';
-      animeList.classList.remove('visible');
-    }
+    clearSearchResultsUi();
   }
 }
 
@@ -1918,12 +2031,22 @@ if (searchInput) {
   searchInput.addEventListener('input', () => {
     clearTimeout(searchDebounce);
     const value = searchInput.value;
-    searchDebounce = setTimeout(() => searchAnime(value), 300);
+
+    searchDebounce = setTimeout(() => {
+      searchAnime(value);
+    }, SEARCH_DEBOUNCE_MS);
   });
 
   searchInput.addEventListener('focus', () => {
     if (lastSearchResults.length) {
       renderAnimeResults(lastSearchResults);
+    }
+  });
+
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      clearSearchResultsUi();
+      searchInput.blur();
     }
   });
 }
@@ -2013,6 +2136,11 @@ window.addEventListener('beforeunload', () => {
   if (usersRenderTicker) {
     clearInterval(usersRenderTicker);
     usersRenderTicker = null;
+  }
+
+  if (activeSearchAbortController) {
+    activeSearchAbortController.abort();
+    activeSearchAbortController = null;
   }
 });
 
