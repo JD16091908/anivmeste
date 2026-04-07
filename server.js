@@ -27,6 +27,9 @@ const ROOM_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 const roomCreationLog = new Map();
 
 const SEARCH_ALIASES_FILE = path.join(__dirname, 'search-aliases.json');
+const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 150;
+const searchResponseCache = new Map();
 
 const TRANSLIT_MAP = new Map([
   ['а', 'a'], ['б', 'b'], ['в', 'v'], ['г', 'g'], ['д', 'd'], ['е', 'e'], ['ё', 'e'],
@@ -35,6 +38,8 @@ const TRANSLIT_MAP = new Map([
   ['ф', 'f'], ['х', 'h'], ['ц', 'ts'], ['ч', 'ch'], ['ш', 'sh'], ['щ', 'sch'],
   ['ъ', ''], ['ы', 'y'], ['ь', ''], ['э', 'e'], ['ю', 'yu'], ['я', 'ya']
 ]);
+
+let SEARCH_ALIASES_MAP = new Map();
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -168,7 +173,7 @@ function normalizeSearchText(value) {
   return String(value || '')
     .toLowerCase()
     .replace(/ё/g, 'е')
-    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s-]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -231,6 +236,10 @@ function transliterateLatToRuApprox(value) {
     .trim();
 }
 
+function dedupeArray(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
 function loadSearchAliases() {
   try {
     if (!fs.existsSync(SEARCH_ALIASES_FILE)) {
@@ -251,7 +260,7 @@ function loadSearchAliases() {
       if (!normalizedKey) continue;
 
       const normalizedValues = Array.isArray(values)
-        ? values.map(item => normalizeSearchText(item)).filter(Boolean)
+        ? dedupeArray(values.map(item => normalizeSearchText(item)))
         : [];
 
       aliases.set(normalizedKey, normalizedValues);
@@ -264,10 +273,26 @@ function loadSearchAliases() {
   }
 }
 
+function refreshSearchAliases() {
+  SEARCH_ALIASES_MAP = loadSearchAliases();
+  console.log(`✅ Search aliases loaded: ${SEARCH_ALIASES_MAP.size}`);
+}
+
+refreshSearchAliases();
+
+try {
+  fs.watchFile(SEARCH_ALIASES_FILE, { interval: 2000 }, () => {
+    console.log('ℹ️ search-aliases.json changed, reloading aliases');
+    refreshSearchAliases();
+    searchResponseCache.clear();
+  });
+} catch (error) {
+  console.error('SEARCH ALIASES WATCH ERROR:', error.message);
+}
+
 function expandQueryVariants(query) {
   const normalized = normalizeSearchText(query);
   const variants = new Set();
-  const aliases = loadSearchAliases();
 
   if (!normalized) return [];
 
@@ -282,23 +307,72 @@ function expandQueryVariants(query) {
   const compact = normalized.replace(/\s+/g, '');
   if (compact) variants.add(compact);
 
-  const aliasDirect = aliases.get(normalized);
+  const aliasDirect = SEARCH_ALIASES_MAP.get(normalized);
   if (aliasDirect) {
     for (const alias of aliasDirect) {
-      variants.add(normalizeSearchText(alias));
+      variants.add(alias);
+      variants.add(alias.replace(/\s+/g, ''));
     }
   }
 
   for (const token of tokenizeSearchText(normalized)) {
-    const alias = aliases.get(token);
+    const alias = SEARCH_ALIASES_MAP.get(token);
     if (alias) {
       for (const item of alias) {
-        variants.add(normalizeSearchText(item));
+        variants.add(item);
+        variants.add(item.replace(/\s+/g, ''));
       }
     }
   }
 
-  return [...variants].filter(Boolean);
+  return [...variants].filter(Boolean).slice(0, 16);
+}
+
+function getSearchCacheKey(query) {
+  return normalizeSearchText(query);
+}
+
+function pruneSearchCache() {
+  const now = Date.now();
+
+  for (const [key, value] of searchResponseCache.entries()) {
+    if (!value || now - value.createdAt > SEARCH_CACHE_TTL_MS) {
+      searchResponseCache.delete(key);
+    }
+  }
+
+  if (searchResponseCache.size <= SEARCH_CACHE_MAX_ENTRIES) return;
+
+  const entries = [...searchResponseCache.entries()]
+    .sort((a, b) => a[1].createdAt - b[1].createdAt);
+
+  while (entries.length && searchResponseCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+    const [oldestKey] = entries.shift();
+    searchResponseCache.delete(oldestKey);
+  }
+}
+
+function getCachedSearch(query) {
+  pruneSearchCache();
+  const key = getSearchCacheKey(query);
+  const cached = searchResponseCache.get(key);
+
+  if (!cached) return null;
+  if (Date.now() - cached.createdAt > SEARCH_CACHE_TTL_MS) {
+    searchResponseCache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCachedSearch(query, data) {
+  pruneSearchCache();
+  const key = getSearchCacheKey(query);
+  searchResponseCache.set(key, {
+    createdAt: Date.now(),
+    data
+  });
 }
 
 function levenshteinDistance(a, b) {
@@ -774,10 +848,8 @@ function calcSingleTitleScore(normalizedTitle, queryVariants) {
   return score;
 }
 
-function titleScore(item, query) {
+function titleScore(item, queryVariants, normalizedQuery) {
   if (!isAllowedAnimeType(item)) return -1000;
-
-  const queryVariants = expandQueryVariants(query);
   if (!queryVariants.length) return 0;
 
   const titles = getAllTitles(item);
@@ -787,7 +859,6 @@ function titleScore(item, query) {
     score = Math.max(score, calcSingleTitleScore(title, queryVariants));
   }
 
-  const normalizedQuery = normalizeSearchText(query);
   const qYear = normalizedQuery.match(/\b(19|20)\d{2}\b/)?.[0];
   const y = String(normalizeYear(item) || '');
   if (qYear && y === qYear) score += 1000;
@@ -800,7 +871,7 @@ function titleScore(item, query) {
   return score;
 }
 
-function makeSearchItem(item, query) {
+function makeSearchItem(item, queryVariants, normalizedQuery) {
   const allTitles = getAllTitles(item);
 
   return {
@@ -816,13 +887,13 @@ function makeSearchItem(item, query) {
     type: normalizeType(item),
     shikimoriId: getShikimoriId(item),
     kodikId: getKodikId(item),
-    score: titleScore(item, query),
+    score: titleScore(item, queryVariants, normalizedQuery),
     serialPriority: isSerial(item) ? 1 : 0
   };
 }
 
-function dedupeSearchResults(items, query) {
-  const queryVariants = expandQueryVariants(query).map(normalizeTitleKey).filter(Boolean);
+function dedupeSearchResults(items, query, queryVariants) {
+  const queryVariantKeys = queryVariants.map(normalizeTitleKey).filter(Boolean);
   const strictMap = new Map();
 
   for (const item of items) {
@@ -835,7 +906,7 @@ function dedupeSearchResults(items, query) {
     const groupKey = `${itemKey}|${year}`;
 
     const goodMatch = titleCandidates.some(candidate =>
-      queryVariants.some(queryKey =>
+      queryVariantKeys.some(queryKey =>
         candidate === queryKey ||
         candidate.startsWith(queryKey) ||
         candidate.includes(queryKey) ||
@@ -849,7 +920,7 @@ function dedupeSearchResults(items, query) {
         .filter(Boolean);
 
       const rawGoodMatch = rawCandidates.some(candidate =>
-        expandQueryVariants(query).some(q =>
+        queryVariants.some(q =>
           candidate.includes(q) ||
           tokenizeSearchText(candidate).some(token => token.startsWith(q))
         )
@@ -1138,7 +1209,7 @@ async function fetchAnimeBySelection(selected) {
     const searchVariants = expandQueryVariants(selected.title);
     const requests = [];
 
-    for (const variant of searchVariants.slice(0, 8)) {
+    for (const variant of searchVariants.slice(0, 6)) {
       requests.push(
         kodikGet('/search', {
           title: variant,
@@ -1482,7 +1553,13 @@ app.get('/api/yummy/search', async (req, res) => {
       return res.status(400).json({ error: 'Введите минимум 2 символа для поиска' });
     }
 
-    const expandedQueries = expandQueryVariants(query).slice(0, 8);
+    const cached = getCachedSearch(query);
+    if (cached) {
+      return res.json(cached);
+    }
+
+    const normalizedQuery = normalizeSearchText(query);
+    const expandedQueries = expandQueryVariants(query).slice(0, 6);
     const requests = [];
 
     for (const q of expandedQueries) {
@@ -1513,10 +1590,10 @@ app.get('/api/yummy/search', async (req, res) => {
 
     const mapped = rawResults
       .filter(isAllowedAnimeType)
-      .map(item => makeSearchItem(item, query))
+      .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
       .filter(item => item.score >= 250);
 
-    const deduped = dedupeSearchResults(mapped, query)
+    const deduped = dedupeSearchResults(mapped, query, expandedQueries)
       .sort((a, b) => {
         const aRank = a.score + (a.serialPriority ? 800 : 0);
         const bRank = b.score + (b.serialPriority ? 800 : 0);
@@ -1525,6 +1602,7 @@ app.get('/api/yummy/search', async (req, res) => {
       .slice(0, 18)
       .map(({ score, serialPriority, titleKey, altTitles, ...item }) => item);
 
+    setCachedSearch(query, deduped);
     res.json(deduped);
   } catch (error) {
     console.error('SEARCH ERROR:', error.message);

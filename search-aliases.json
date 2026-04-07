@@ -451,10 +451,6 @@
     "kumo desu ga nani ka",
     "да я паук и что же"
   ],
-  "паук": [
-    "kumo desu ga nani ka",
-    "да я паук и что же"
-  ],
   "даяпаук": [
     "kumo desu ga nani ka",
     "да я паук и что же"
@@ -481,12 +477,6 @@
     "re zero kara hajimeru isekai seikatsu",
     "re zero",
     "жизнь с нуля в альтернативном мире"
-  ],
-  "коносуба": [
-    "kono subarashii sekai ni shukufuku wo",
-    "kono suba",
-    "благословение небожителей",
-    "благословение этому прекрасному миру"
   ],
   "коносуба": [
     "kono subarashii sekai ni shukufuku wo",
@@ -568,7 +558,7 @@
   ],
   "обительзла": [
     "resident evil",
-    "биоhazard"
+    "biohazard"
   ],
   "школьныедни": [
     "school days",
@@ -882,7 +872,6 @@
     "ходячий замок"
   ],
   "городгероев": [
-    "akira",
     "akira"
   ],
   "акира": [

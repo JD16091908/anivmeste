@@ -111,6 +111,19 @@ function redirectToRoom(roomId, username, accessToken = '') {
   window.location.href = `/room/${encodeURIComponent(safeRoomId)}${query}`;
 }
 
+function debounce(fn, delay = 300) {
+  let timeoutId = null;
+
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      fn(...args);
+    }, delay);
+  };
+}
+
+window.AnivmesteDebounce = debounce;
+
 function setupRevealAnimations() {
   const items = document.querySelectorAll('.reveal');
   if (!items.length) return;
