@@ -5,9 +5,9 @@ window.PlayerModule = (() => {
   let onEndedCallback = null;
 
   function normalizeUrl(url) {
-    if (!url) return url;
-    if (url.startsWith('//')) return `https:${url}`;
-    return url;
+    if (!url) return '';
+    if (String(url).startsWith('//')) return `https:${url}`;
+    return String(url);
   }
 
   function escapeHtml(value) {
@@ -20,8 +20,11 @@ window.PlayerModule = (() => {
   }
 
   function createIframe({ src, title = 'Без названия' } = {}) {
+    const normalizedSrc = normalizeUrl(src);
+    if (!normalizedSrc) return null;
+
     const iframe = document.createElement('iframe');
-    iframe.src = normalizeUrl(src);
+    iframe.src = normalizedSrc;
     iframe.title = title;
     iframe.allow = 'autoplay; fullscreen; picture-in-picture';
     iframe.setAttribute('allowfullscreen', '');
@@ -52,8 +55,15 @@ window.PlayerModule = (() => {
     clearPlayer(container);
 
     const iframe = createIframe({ src, title });
-    container.appendChild(iframe);
+    if (!iframe) {
+      showPlaceholder(container, {
+        title: 'Ошибка загрузки',
+        description: 'Не удалось загрузить плеер'
+      });
+      return null;
+    }
 
+    container.appendChild(iframe);
     return iframe;
   }
 
@@ -68,7 +78,7 @@ window.PlayerModule = (() => {
     const wrapper = document.createElement('div');
     wrapper.className = 'placeholder';
     wrapper.innerHTML = `
-      <div>
+      <div class="placeholder-content">
         <h2>${escapeHtml(title)}</h2>
         <p>${escapeHtml(description)}</p>
       </div>
@@ -81,14 +91,23 @@ window.PlayerModule = (() => {
     if (!currentIframe?.contentWindow) return false;
 
     try {
-      currentIframe.contentWindow.postMessage(JSON.stringify({
+      currentIframe.contentWindow.postMessage({
         source: 'external',
         method,
         params
-      }), '*');
+      }, '*');
       return true;
     } catch {
-      return false;
+      try {
+        currentIframe.contentWindow.postMessage(JSON.stringify({
+          source: 'external',
+          method,
+          params
+        }), '*');
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 

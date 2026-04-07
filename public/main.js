@@ -28,6 +28,23 @@ const RANDOM_NICK_NOUNS = [
   'Princess', 'Beast', 'Slayer', 'Seeker', 'Walker', 'Chaser', 'Nomad', 'Reaper', 'Sentinel', 'Alchemist'
 ];
 
+function safeLocalStorageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function sanitizeUsername(name) {
   return String(name || '')
     .trim()
@@ -50,16 +67,19 @@ function generateRandomNickname() {
 function saveUsername(name, isManual = true) {
   const username = sanitizeUsername(name);
   if (!username) return '';
-  localStorage.setItem(USERNAME_STORAGE, username);
-  localStorage.setItem(MANUAL_USERNAME_STORAGE, isManual ? '1' : '0');
+
+  safeLocalStorageSet(USERNAME_STORAGE, username);
+  safeLocalStorageSet(MANUAL_USERNAME_STORAGE, isManual ? '1' : '0');
+
   return username;
 }
 
 function getSavedUsername() {
-  const saved = sanitizeUsername(localStorage.getItem(USERNAME_STORAGE));
-  const hasManual = localStorage.getItem(MANUAL_USERNAME_STORAGE) === '1';
+  const saved = sanitizeUsername(safeLocalStorageGet(USERNAME_STORAGE));
+  const hasManual = safeLocalStorageGet(MANUAL_USERNAME_STORAGE) === '1';
 
   if (hasManual && saved) return saved;
+  if (saved) return saved;
 
   const generated = generateRandomNickname();
   saveUsername(generated, false);
@@ -114,12 +134,19 @@ function redirectToRoom(roomId, username, accessToken = '') {
 function debounce(fn, delay = 300) {
   let timeoutId = null;
 
-  return (...args) => {
+  function debounced(...args) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
       fn(...args);
     }, delay);
+  }
+
+  debounced.cancel = () => {
+    clearTimeout(timeoutId);
+    timeoutId = null;
   };
+
+  return debounced;
 }
 
 window.AnivmesteDebounce = debounce;
@@ -158,6 +185,7 @@ function setupModal({
 
   const open = () => {
     if (isAnimating) return;
+
     modal.classList.remove('hidden', 'is-hiding');
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
@@ -260,12 +288,12 @@ function setupHomeActions() {
   });
 
   usernameInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      if (roomIdInput.value.trim()) {
-        joinRoomBtn.click();
-      } else {
-        createRoomBtn.click();
-      }
+    if (event.key !== 'Enter') return;
+
+    if (roomIdInput.value.trim()) {
+      joinRoomBtn.click();
+    } else {
+      createRoomBtn.click();
     }
   });
 
