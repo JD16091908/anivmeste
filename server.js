@@ -10,7 +10,7 @@ const rateLimit = require('express-rate-limit');
 const { Server } = require('socket.io');
 
 const app = express();
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 const ALLOWED_ORIGINS = new Set([
   'https://anivmeste.ru',
@@ -152,14 +152,16 @@ const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 240,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { trustProxy: false }
 });
 
 app.use(globalLimiter);
