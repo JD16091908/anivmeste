@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /room/
+Disallow: /api/
 
 Sitemap: https://anivmeste.ru/sitemap.xml
