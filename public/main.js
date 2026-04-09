@@ -243,12 +243,10 @@ function setupSupportContent() {
 
 function setupHomeActions() {
   const usernameInput = document.getElementById('username');
-  const roomIdInput = document.getElementById('roomId');
   const createRoomBtn = document.getElementById('createRoomBtn');
-  const joinRoomBtn = document.getElementById('joinRoomBtn');
   const soloWatchBtn = document.getElementById('soloWatchBtn');
 
-  if (!usernameInput || !roomIdInput || !createRoomBtn || !joinRoomBtn || !soloWatchBtn) {
+  if (!usernameInput || !createRoomBtn || !soloWatchBtn) {
     return;
   }
 
@@ -269,37 +267,14 @@ function setupHomeActions() {
     redirectToRoom(roomId, username, accessToken);
   });
 
-  joinRoomBtn.addEventListener('click', () => {
-    const username = resolveUsername();
-    const roomId = sanitizeRoomId(roomIdInput.value);
-
-    if (!roomId) {
-      alert('Введите ID комнаты');
-      roomIdInput.focus();
-      return;
-    }
-
-    redirectToRoom(roomId, username);
-  });
-
   soloWatchBtn.addEventListener('click', () => {
     const username = resolveUsername();
     redirectToRoom('solo', username);
   });
 
   usernameInput.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-
-    if (roomIdInput.value.trim()) {
-      joinRoomBtn.click();
-    } else {
-      createRoomBtn.click();
-    }
-  });
-
-  roomIdInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
-      joinRoomBtn.click();
+      createRoomBtn.click();
     }
   });
 }
