@@ -1674,7 +1674,7 @@ app.get('/api/health/kodik', async (req, res) => {
   }
 });
 
-app.get('/api/yummy/search', async (req, res) => {
+async function handleKodikSearch(req, res) {
   try {
     if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
 
@@ -1727,12 +1727,12 @@ app.get('/api/yummy/search', async (req, res) => {
     setCachedSearch(query, deduped);
     res.json(deduped);
   } catch (error) {
-    console.error('SEARCH ERROR:', error.message);
+    console.error('KODIK SEARCH ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось выполнить поиск', details: error.message });
   }
-});
+}
 
-app.post('/api/yummy/anime/by-selection', async (req, res) => {
+async function handleKodikAnimeBySelection(req, res) {
   try {
     if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
 
@@ -1787,10 +1787,17 @@ app.post('/api/yummy/anime/by-selection', async (req, res) => {
       videos
     });
   } catch (error) {
-    console.error('ANIME BY SELECTION ERROR:', error.message);
+    console.error('KODIK ANIME BY SELECTION ERROR:', error.message);
     res.status(500).json({ error: 'Не удалось загрузить аниме', details: error.message });
   }
-});
+}
+
+app.get('/api/kodik/search', handleKodikSearch);
+app.post('/api/kodik/anime/by-selection', handleKodikAnimeBySelection);
+
+// Совместимость со старыми клиентами
+app.get('/api/yummy/search', handleKodikSearch);
+app.post('/api/yummy/anime/by-selection', handleKodikAnimeBySelection);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/support', (req, res) => res.sendFile(path.join(__dirname, 'public', 'support.html')));
