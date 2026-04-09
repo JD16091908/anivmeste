@@ -13,6 +13,16 @@ const MANUAL_USERNAME_STORAGE = 'saved_username_manual';
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_DEBOUNCE_MS = 300;
 
+const SEARCH_ENDPOINTS = [
+  '/api/kodik/search',
+  '/api/yummy/search'
+];
+
+const SELECTION_ENDPOINTS = [
+  '/api/kodik/anime/by-selection',
+  '/api/yummy/anime/by-selection'
+];
+
 let isHost = false;
 let latestSearchToken = 0;
 let activeSearchAbortController = null;
@@ -234,11 +244,9 @@ function renderAnimeResults(items) {
 
 async function fetchSearchResults(rawQuery, token) {
   const encoded = encodeURIComponent(rawQuery);
+  const urls = SEARCH_ENDPOINTS.map((base) => `${base}?q=${encoded}`);
 
-  const data = await fetchFromAny([
-    `/api/kodik/search?q=${encoded}`,
-    `/api/yummy/search?q=${encoded}`
-  ], {
+  const data = await fetchFromAny(urls, {
     headers: { Accept: 'application/json' },
     signal: activeSearchAbortController?.signal
   });
@@ -290,11 +298,7 @@ const debouncedSearchAnime = debounce(async (query) => {
     if (error?.name === 'AbortError') return;
 
     if (searchStatus) {
-      if (String(error.message || '').includes('API route not found')) {
-        searchStatus.textContent = 'API маршрут поиска не найден на сервере';
-      } else {
-        searchStatus.textContent = error.message || 'Ошибка поиска';
-      }
+      searchStatus.textContent = 'Ошибка API поиска. Проверь server.js маршруты /api/kodik/*';
     }
     renderAnimeResults([]);
   }
@@ -306,7 +310,7 @@ async function selectAnime(item) {
 
   try {
     const data = await fetchFromAny(
-      ['/api/kodik/anime/by-selection', '/api/yummy/anime/by-selection'],
+      SELECTION_ENDPOINTS,
       {
         method: 'POST',
         headers: {
@@ -368,7 +372,7 @@ async function selectAnime(item) {
     }
   } catch (error) {
     updateSelectedAnimeInfoContent(null);
-    showPlaceholderUi('Ошибка', error.message || 'Не удалось загрузить аниме');
+    showPlaceholderUi('Ошибка', 'Не удалось загрузить аниме. Проверь маршруты /api/kodik/anime/by-selection и /api/yummy/anime/by-selection');
   }
 }
 
@@ -507,6 +511,15 @@ socket.on('video-changed', (state) => {
 });
 
 socket.on('room-users', renderUsers);
+
+socket.on('system-message', ({ text }) => {
+  if (!chatMessages || !text) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-system-message';
+  wrap.textContent = String(text);
+  chatMessages.appendChild(wrap);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+});
 
 socket.on('chat-message', ({ username: author, message, time }) => {
   if (!chatMessages) return;
