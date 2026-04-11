@@ -32,6 +32,10 @@ const SEARCH_CACHE_MAX_ENTRIES = 300;
 const searchResponseCache = new Map();
 const dnsAvailabilityCache = new Map();
 
+const SHIKI_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const SHIKI_SEARCH_CACHE_MAX_ENTRIES = 250;
+const shikimoriSearchCache = new Map();
+
 const BUILTIN_SEARCH_ALIASES = {
   'хантер': [
     'хантер х хантер',
@@ -193,12 +197,13 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const rooms = {};
 
-const KODIK_TOKEN = process.env.KODIK_TOKEN || 'ea55976b6acc94f41f173e2c702ebf6b';
+// ВАЖНО: токен Kodik должен быть задан через переменные окружения (Render -> Environment)
+const KODIK_TOKEN = String(process.env.KODIK_TOKEN || '').trim();
 const KODIK_API_BASE = 'https://kodik-api.com';
 const SHIKIMORI_API_BASE = 'https://shikimori.one/api';
 const BLOCKED_ANIME_FILE = path.join(__dirname, 'blocked-anime.json');
 
-console.log(KODIK_TOKEN ? '✅ KODIK TOKEN загружен' : '❌ KODIK TOKEN не найден');
+console.log(KODIK_TOKEN ? '✅ KODIK TOKEN загружен из env' : '❌ KODIK TOKEN не найден (нужен env KODIK_TOKEN)');
 
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'favicon.ico'), {
@@ -381,6 +386,7 @@ try {
     console.log('ℹ️ search-aliases.json changed, reloading aliases');
     refreshSearchAliases();
     searchResponseCache.clear();
+    shikimoriSearchCache.clear();
   });
 } catch (error) {
   console.error('SEARCH ALIASES WATCH ERROR:', error.message);
@@ -471,6 +477,49 @@ function setCachedSearch(query, data) {
   pruneSearchCache();
   const key = getSearchCacheKey(query);
   searchResponseCache.set(key, {
+    createdAt: Date.now(),
+    data
+  });
+}
+
+function pruneShikimoriSearchCache() {
+  const now = Date.now();
+
+  for (const [key, value] of shikimoriSearchCache.entries()) {
+    if (!value || now - value.createdAt > SHIKI_SEARCH_CACHE_TTL_MS) {
+      shikimoriSearchCache.delete(key);
+    }
+  }
+
+  if (shikimoriSearchCache.size <= SHIKI_SEARCH_CACHE_MAX_ENTRIES) return;
+
+  const entries = [...shikimoriSearchCache.entries()]
+    .sort((a, b) => a[1].createdAt - b[1].createdAt);
+
+  while (entries.length && shikimoriSearchCache.size > SHIKI_SEARCH_CACHE_MAX_ENTRIES) {
+    const [oldestKey] = entries.shift();
+    shikimoriSearchCache.delete(oldestKey);
+  }
+}
+
+function getCachedShikimoriSearch(query) {
+  pruneShikimoriSearchCache();
+  const key = normalizeSearchText(query);
+  const cached = shikimoriSearchCache.get(key);
+
+  if (!cached) return null;
+  if (Date.now() - cached.createdAt > SHIKI_SEARCH_CACHE_TTL_MS) {
+    shikimoriSearchCache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCachedShikimoriSearch(query, data) {
+  pruneShikimoriSearchCache();
+  const key = normalizeSearchText(query);
+  shikimoriSearchCache.set(key, {
     createdAt: Date.now(),
     data
   });
@@ -787,6 +836,26 @@ async function shikimoriGet(endpoint) {
   }
 }
 
+async function shikimoriSearchAnimes(searchQuery) {
+  const normalized = normalizeSearchText(searchQuery);
+  if (!normalized || normalized.length < 2) return [];
+
+  const cached = getCachedShikimoriSearch(normalized);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({
+    search: searchQuery,
+    limit: '12',
+    order: 'ranked'
+  });
+
+  const data = await shikimoriGet(`/animes?${params.toString()}`);
+  const list = Array.isArray(data) ? data : [];
+
+  setCachedShikimoriSearch(normalized, list);
+  return list;
+}
+
 function normalizePoster(item) {
   const poster =
     item?.poster_url ||
@@ -996,6 +1065,31 @@ function calcSingleTitleScore(normalizedTitle, queryVariants, normalizedQuery) {
   }
 
   return score;
+}
+
+function scoreShikimoriAnimeCandidate(anime, queryVariants, normalizedQuery) {
+  const titles = [
+    anime?.russian,
+    anime?.name
+  ].filter(Boolean);
+
+  let score = 0;
+  for (const title of titles) {
+    score = Math.max(score, calcSingleTitleScore(title, queryVariants, normalizedQuery));
+  }
+  return score;
+}
+
+function pickShikimoriSearchTerm(expandedQueries, normalizedQuery) {
+  const pool = dedupeArray([normalizedQuery, ...(expandedQueries || [])])
+    .map(q => String(q || '').trim())
+    .filter(q => q.length >= 2);
+
+  if (!pool.length) return null;
+
+  // Берём самый “длинный” запрос — обычно он точнее (например "naruto shippuden")
+  pool.sort((a, b) => b.length - a.length);
+  return pool[0] || null;
 }
 
 function titleScore(item, queryVariants, normalizedQuery) {
@@ -1692,6 +1786,32 @@ async function handleKodikSearch(req, res) {
     const expandedQueries = expandQueryVariants(query);
     const primaryQueries = expandedQueries.slice(0, 3);
 
+    // Shikimori boosting: помогает убрать “левые” совпадения и поднять правильные тайтлы
+    const shikiBoostMap = new Map();
+    try {
+      const shikiTerm = pickShikimoriSearchTerm(expandedQueries, normalizedQuery);
+      if (shikiTerm) {
+        const shikiResults = await shikimoriSearchAnimes(shikiTerm);
+
+        const scored = shikiResults
+          .map(anime => ({
+            id: Number(anime?.id) || null,
+            score: scoreShikimoriAnimeCandidate(anime, expandedQueries, normalizedQuery)
+          }))
+          .filter(item => item.id && item.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 12);
+
+        scored.forEach((item, index) => {
+          const base = Math.max(800, 5200 - index * 450);
+          const strength = Math.min(1, Math.max(0.25, item.score / 25000));
+          shikiBoostMap.set(item.id, Math.round(base * strength));
+        });
+      }
+    } catch (error) {
+      console.log('Shikimori boost skipped:', error.message);
+    }
+
     const requests = primaryQueries.map(q =>
       kodikGet('/search', {
         title: q,
@@ -1710,19 +1830,44 @@ async function handleKodikSearch(req, res) {
       }
     }
 
-    const mapped = rawResults
+    const mappedAll = rawResults
       .filter(isAllowedAnimeType)
       .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
-      .filter(item => item.score >= 500);
+      .map(item => {
+        const sid = Number(item.shikimoriId) || null;
+        if (sid && shikiBoostMap.has(sid)) {
+          item.score += shikiBoostMap.get(sid);
+        }
+        return item;
+      });
 
-    const deduped = dedupeSearchResults(mapped, query, expandedQueries)
+    // Базовый отсев
+    const mapped = mappedAll.filter(item => item.score >= 500);
+
+    // Динамический порог: режем “мусор” относительно лучшего совпадения
+    const maxScore = mapped.reduce((acc, it) => Math.max(acc, Number(it.score) || 0), 0);
+    const dynamicThresholdHard = Math.max(1800, Math.floor(maxScore * 0.38));
+    const dynamicThresholdSoft = Math.max(1100, Math.floor(maxScore * 0.28));
+
+    let filtered = mapped.filter(item => item.score >= dynamicThresholdHard);
+
+    // Если слишком агрессивно отфильтровали — ослабляем
+    if (filtered.length < 4) {
+      filtered = mapped.filter(item => item.score >= dynamicThresholdSoft);
+    }
+    if (!filtered.length) {
+      filtered = mapped;
+    }
+
+    const deduped = dedupeSearchResults(filtered, query, expandedQueries)
       .sort((a, b) => {
         const aRank = a.score + (a.serialPriority ? 800 : 0);
         const bRank = b.score + (b.serialPriority ? 800 : 0);
         return bRank - aRank;
       })
       .slice(0, 18)
-      .map(({ score, serialPriority, titleKey, altTitles, ...item }) => item);
+      // ВАЖНО: score/serialPriority оставляем, чтобы room.js не ломал сортировку
+      .map(({ titleKey, altTitles, ...item }) => item);
 
     setCachedSearch(query, deduped);
     res.json(deduped);
