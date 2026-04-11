@@ -432,19 +432,33 @@ function getIframeUrl(video) {
   return video?.iframeUrl || video?.iframe_url || null;
 }
 
+// ВАЖНО: сортировка поиска.
+// Чтобы не выглядело "рандомно", делаем так:
+// 1) релевантность (score)
+// 2) сериал выше фильмов/OVA (serialPriority)
+// 3) дата релиза (год) по возрастанию (старые -> новые), чтобы выглядело как порядок выхода
 function sortSearchResults(items) {
   return [...(items || [])].sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    if (b.serialPriority !== a.serialPriority) return b.serialPriority - a.serialPriority;
+    const scoreA = Number(a?.score) || 0;
+    const scoreB = Number(b?.score) || 0;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+
+    const spA = Number(a?.serialPriority) || 0;
+    const spB = Number(b?.serialPriority) || 0;
+    if (spB !== spA) return spB - spA;
+
     const yearA = Number(a?.year) || 9999;
     const yearB = Number(b?.year) || 9999;
-    if (yearA !== yearB) return yearB - yearA;
+    if (yearA !== yearB) return yearA - yearB;
+
     return String(a?.title || '').localeCompare(String(b?.title || ''), 'ru');
   });
 }
 
 function buildSearchSignature(items, expanded) {
-  const ids = (items || []).map(item => `${item.animeId || ''}:${item.title || ''}:${item.year || ''}`).join('|');
+  const ids = (items || [])
+    .map(item => `${item.animeId || ''}:${item.title || ''}:${item.year || ''}:${Number(item.score) || 0}`)
+    .join('|');
   return `${expanded ? '1' : '0'}::${ids}`;
 }
 
