@@ -559,19 +559,11 @@ function sanitizeRoomId(value) {
     .slice(0, 120);
 }
 
-function sanitizeAccessToken(value) {
-  return String(value || '')
-    .trim()
-    .replace(/[^a-zA-Z0-9]/g, '')
-    .slice(0, 128);
-}
-
-function secureCompare(a, b) {
-  const left = Buffer.from(String(a || ''));
-  const right = Buffer.from(String(b || ''));
-
-  if (left.length !== right.length) return false;
-  return crypto.timingSafeEqual(left, right);
+function isValidNewRoomId(roomId) {
+  const safe = sanitizeRoomId(roomId);
+  if (!safe || safe !== roomId) return false;
+  if (safe === 'solo') return false;
+  return /^r_[a-z0-9]{24}$/i.test(safe);
 }
 
 function loadBlockedAnimeConfig() {
@@ -1142,7 +1134,6 @@ function selectPrimaryKodikQueries(rawQuery, expandedQueries, normalizedQuery) {
     primary = [latinBest, ...primary].slice(0, 5);
   }
 
-  // На всякий случай: не отправляем совсем короткие и бессмысленные штуки
   primary = primary.filter(q => q.length >= 2);
 
   return dedupeArray(primary).slice(0, 5);
@@ -1192,7 +1183,7 @@ function makeSearchItem(item, queryVariants, normalizedQuery) {
   };
 }
 
-function dedupeSearchResults(items, query, queryVariants) {
+function dedupeSearchResults(items, queryVariants) {
   const queryVariantKeys = queryVariants.map(normalizeTitleKey).filter(Boolean);
   const strictMap = new Map();
 
@@ -1911,10 +1902,10 @@ async function handleKodikSearch(req, res) {
       filtered = mapped;
     }
 
-    const deduped = dedupeSearchResults(filtered, query, expandedQueries)
+    const deduped = dedupeSearchResults(filtered, expandedQueries)
       .sort((a, b) => {
-        const aRank = a.score + (a.serialPriority ? 800 : 0);
-        const bRank = b.score + (b.serialPriority ? 800 : 0);
+        const aRank = (Number(a.score) || 0) + (a.serialPriority ? 800 : 0);
+        const bRank = (Number(b.score) || 0) + (b.serialPriority ? 800 : 0);
         return bRank - aRank;
       })
       .slice(0, 18)
@@ -1991,6 +1982,7 @@ async function handleKodikAnimeBySelection(req, res) {
 app.get('/api/kodik/search', handleKodikSearch);
 app.post('/api/kodik/anime/by-selection', handleKodikAnimeBySelection);
 
+// Совместимость со старыми клиентами
 app.get('/api/yummy/search', handleKodikSearch);
 app.post('/api/yummy/anime/by-selection', handleKodikAnimeBySelection);
 
@@ -2020,16 +2012,14 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-function ensureRoom(roomId, accessToken = '') {
+function ensureRoom(roomId) {
   const safeRoomId = sanitizeRoomId(roomId);
-  const safeAccessToken = sanitizeAccessToken(accessToken);
   const now = Date.now();
 
   if (!rooms[safeRoomId]) {
     rooms[safeRoomId] = {
       creatorUserKey: null,
       creatorSocketId: null,
-      accessToken: safeAccessToken || null,
       createdAt: now,
       lastActivityAt: now,
       emptySince: null,
@@ -2073,20 +2063,6 @@ function isRoomHost(room, socket) {
   return !!room.creatorUserKey
     && room.creatorUserKey === socket.data.userKey
     && room.creatorSocketId === socket.id;
-}
-
-function canJoinRoom(room, providedAccessToken, socket) {
-  if (!room) return false;
-
-  if (!room.accessToken) {
-    return true;
-  }
-
-  if (isRoomHost(room, socket)) {
-    return true;
-  }
-
-  return secureCompare(room.accessToken, sanitizeAccessToken(providedAccessToken));
 }
 
 function getEffectivePlayback(pb) {
@@ -2197,9 +2173,8 @@ io.on('connection', (socket) => {
   socket.data.lastSeekEmitAt = 0;
   socket.data.lastUserTimeEmitAt = 0;
 
-  socket.on('join-room', ({ roomId, username, userKey, accessToken }) => {
+  socket.on('join-room', ({ roomId, username, userKey }) => {
     const safeRoomId = sanitizeRoomId(roomId);
-    const safeAccessToken = sanitizeAccessToken(accessToken);
     const socketIp = getClientIp({
       headers: socket.handshake.headers,
       ip: socket.handshake.address,
@@ -2213,7 +2188,13 @@ io.on('connection', (socket) => {
 
     const roomExists = !!rooms[safeRoomId];
 
+    // Создавать комнату разрешаем только по "нормальному" id из ссылки (r_ + 24 символа)
     if (!roomExists) {
+      if (!isValidNewRoomId(safeRoomId)) {
+        socket.emit('join-error', { message: 'Некорректная ссылка комнаты' });
+        return;
+      }
+
       if (!canCreateRoomForIp(socketIp)) {
         socket.emit('join-error', { message: 'Слишком много созданий комнат с вашего IP. Попробуйте позже.' });
         return;
@@ -2221,31 +2202,20 @@ io.on('connection', (socket) => {
       registerRoomCreationForIp(socketIp);
     }
 
-    const room = roomExists
-      ? rooms[safeRoomId]
-      : ensureRoom(safeRoomId, safeAccessToken);
+    const room = roomExists ? rooms[safeRoomId] : ensureRoom(safeRoomId);
 
     socket.data.roomId = safeRoomId;
     socket.data.username = sanitizeRoomUsername(username);
     socket.data.userKey = userKey;
-    socket.data.accessToken = safeAccessToken;
 
     if (!room.creatorUserKey) {
       room.creatorUserKey = userKey;
       room.creatorSocketId = socket.id;
-      if (safeAccessToken) {
-        room.accessToken = safeAccessToken;
-      }
     } else {
       attachCreatorSocketIfOwner(room, socket);
     }
 
     const isHostNow = isRoomHost(room, socket);
-
-    if (!isHostNow && !canJoinRoom(room, safeAccessToken, socket)) {
-      socket.emit('join-error', { message: 'Доступ в комнату запрещён. Используйте правильную ссылку-приглашение.' });
-      return;
-    }
 
     socket.join(safeRoomId);
 

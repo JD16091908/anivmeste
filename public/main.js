@@ -51,10 +51,11 @@ function generateSecureToken(length = 24) {
   return result;
 }
 
-function redirectToRoom(roomId, username, accessToken = '') {
+// ВАЖНО: больше не используем никакие "коды доступа" в ссылке.
+// Комната уникальна за счёт случайного roomId.
+function redirectToRoom(roomId, username) {
   const params = new URLSearchParams();
   if (username) params.set('username', username);
-  if (accessToken) params.set('access', accessToken);
   window.location.href = `/room/${roomId}?${params.toString()}`;
 }
 
@@ -160,8 +161,7 @@ function setupHomeActions() {
 
   createRoomBtn.addEventListener('click', () => {
     const roomId = `r_${generateSecureToken(24)}`;
-    const access = generateSecureToken(32);
-    redirectToRoom(roomId, getUsername(), access);
+    redirectToRoom(roomId, getUsername());
   });
 
   soloWatchBtn.addEventListener('click', () => {

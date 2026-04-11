@@ -7,13 +7,12 @@ const DONATIONALERTS_URL = SUPPORT_CONFIG.donationAlertsUrl || '#';
 
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
-const roomAccessToken = String(params.get('access') || '').trim();
 
 const SEARCH_ENDPOINTS = ['/api/kodik/search', '/api/yummy/search'];
 const SELECT_ENDPOINTS = ['/api/kodik/anime/by-selection', '/api/yummy/anime/by-selection'];
 
 function updateRoomDocumentMeta(currentRoomId) {
-  const title = currentRoomId === 'solo' ? 'Одиночный просмотр' : `Комната: ${currentRoomId}`;
+  const title = currentRoomId === 'solo' ? 'Одиночный просмотр' : 'Комната просмотра';
   document.title = `${title} — Anivmeste`;
 
   const roomTitleEl = document.getElementById('roomTitle');
@@ -432,11 +431,6 @@ function getIframeUrl(video) {
   return video?.iframeUrl || video?.iframe_url || null;
 }
 
-// ВАЖНО: сортировка поиска.
-// Чтобы не выглядело "рандомно", делаем так:
-// 1) релевантность (score)
-// 2) сериал выше фильмов/OVA (serialPriority)
-// 3) дата релиза (год) по возрастанию (старые -> новые), чтобы выглядело как порядок выхода
 function sortSearchResults(items) {
   return [...(items || [])].sort((a, b) => {
     const scoreA = Number(a?.score) || 0;
@@ -1477,7 +1471,7 @@ if (window.PlayerModule?.onEpisodeEnded) {
 
 socket.on('connect', () => {
   if (roomId !== 'solo') {
-    socket.emit('join-room', { roomId, username, userKey, accessToken: roomAccessToken });
+    socket.emit('join-room', { roomId, username, userKey });
   } else {
     isHost = true;
     updateControlState();
@@ -1627,13 +1621,7 @@ if (searchInput) {
 
 if (copyLinkBtn) {
   copyLinkBtn.addEventListener('click', async () => {
-    const inviteParams = new URLSearchParams();
-    if (roomAccessToken) {
-      inviteParams.set('access', roomAccessToken);
-    }
-
-    const inviteQuery = inviteParams.toString();
-    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(roomId)}${inviteQuery ? `?${inviteQuery}` : ''}`;
+    const inviteUrl = `${window.location.origin}/room/${encodeURIComponent(roomId)}`;
 
     try {
       await navigator.clipboard.writeText(inviteUrl);
