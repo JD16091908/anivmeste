@@ -197,7 +197,6 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const rooms = {};
 
-// ВАЖНО: токен Kodik должен быть задан через переменные окружения (Render -> Environment)
 const KODIK_TOKEN = String(process.env.KODIK_TOKEN || '').trim();
 const KODIK_API_BASE = 'https://kodik-api.com';
 const SHIKIMORI_API_BASE = 'https://shikimori.one/api';
@@ -1080,6 +1079,10 @@ function scoreShikimoriAnimeCandidate(anime, queryVariants, normalizedQuery) {
   return score;
 }
 
+function isLatinText(value) {
+  return /[a-z]/i.test(String(value || ''));
+}
+
 function pickShikimoriSearchTerm(expandedQueries, normalizedQuery) {
   const pool = dedupeArray([normalizedQuery, ...(expandedQueries || [])])
     .map(q => String(q || '').trim())
@@ -1087,9 +1090,62 @@ function pickShikimoriSearchTerm(expandedQueries, normalizedQuery) {
 
   if (!pool.length) return null;
 
-  // Берём самый “длинный” запрос — обычно он точнее (например "naruto shippuden")
+  const latinCandidates = pool.filter(isLatinText);
+  if (latinCandidates.length) {
+    latinCandidates.sort((a, b) => b.length - a.length);
+    return latinCandidates[0] || null;
+  }
+
   pool.sort((a, b) => b.length - a.length);
   return pool[0] || null;
+}
+
+function primaryQueryPriority(q, normalizedQuery) {
+  const n = normalizeSearchText(q);
+  if (!n) return -999;
+
+  let score = 0;
+
+  if (n === normalizedQuery) score += 10000;
+  if (isLatinText(n)) score += 2600;
+  if (/[а-я]/i.test(n)) score += 1800;
+
+  if (n.includes(' ')) score += 1200;
+  if (!n.includes(' ') && n.length >= 8) score -= 250;
+
+  score += Math.min(1600, n.length * 45);
+
+  const qYear = normalizedQuery.match(/\b(19|20)\d{2}\b/)?.[0];
+  if (qYear && n.includes(qYear)) score += 450;
+
+  return score;
+}
+
+function selectPrimaryKodikQueries(rawQuery, expandedQueries, normalizedQuery) {
+  const candidates = dedupeArray([
+    rawQuery,
+    normalizedQuery,
+    ...(expandedQueries || [])
+  ])
+    .map(q => normalizeSearchText(q))
+    .filter(Boolean);
+
+  const scored = candidates
+    .map(q => ({ q, score: primaryQueryPriority(q, normalizedQuery) }))
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.q);
+
+  let primary = scored.slice(0, 5);
+
+  const latinBest = scored.find(q => isLatinText(q));
+  if (latinBest && !primary.includes(latinBest)) {
+    primary = [latinBest, ...primary].slice(0, 5);
+  }
+
+  // На всякий случай: не отправляем совсем короткие и бессмысленные штуки
+  primary = primary.filter(q => q.length >= 2);
+
+  return dedupeArray(primary).slice(0, 5);
 }
 
 function titleScore(item, queryVariants, normalizedQuery) {
@@ -1784,9 +1840,8 @@ async function handleKodikSearch(req, res) {
 
     const normalizedQuery = normalizeSearchText(query);
     const expandedQueries = expandQueryVariants(query);
-    const primaryQueries = expandedQueries.slice(0, 3);
+    const primaryQueries = selectPrimaryKodikQueries(query, expandedQueries, normalizedQuery);
 
-    // Shikimori boosting: помогает убрать “левые” совпадения и поднять правильные тайтлы
     const shikiBoostMap = new Map();
     try {
       const shikiTerm = pickShikimoriSearchTerm(expandedQueries, normalizedQuery);
@@ -1841,18 +1896,15 @@ async function handleKodikSearch(req, res) {
         return item;
       });
 
-    // Базовый отсев
-    const mapped = mappedAll.filter(item => item.score >= 500);
+    const mapped = mappedAll.filter(item => item.score >= 350);
 
-    // Динамический порог: режем “мусор” относительно лучшего совпадения
     const maxScore = mapped.reduce((acc, it) => Math.max(acc, Number(it.score) || 0), 0);
-    const dynamicThresholdHard = Math.max(1800, Math.floor(maxScore * 0.38));
-    const dynamicThresholdSoft = Math.max(1100, Math.floor(maxScore * 0.28));
+    const dynamicThresholdHard = Math.max(1600, Math.floor(maxScore * 0.33));
+    const dynamicThresholdSoft = Math.max(950, Math.floor(maxScore * 0.22));
 
     let filtered = mapped.filter(item => item.score >= dynamicThresholdHard);
 
-    // Если слишком агрессивно отфильтровали — ослабляем
-    if (filtered.length < 4) {
+    if (filtered.length < 6) {
       filtered = mapped.filter(item => item.score >= dynamicThresholdSoft);
     }
     if (!filtered.length) {
@@ -1866,7 +1918,6 @@ async function handleKodikSearch(req, res) {
         return bRank - aRank;
       })
       .slice(0, 18)
-      // ВАЖНО: score/serialPriority оставляем, чтобы room.js не ломал сортировку
       .map(({ titleKey, altTitles, ...item }) => item);
 
     setCachedSearch(query, deduped);
@@ -1940,7 +1991,6 @@ async function handleKodikAnimeBySelection(req, res) {
 app.get('/api/kodik/search', handleKodikSearch);
 app.post('/api/kodik/anime/by-selection', handleKodikAnimeBySelection);
 
-// Совместимость со старыми клиентами
 app.get('/api/yummy/search', handleKodikSearch);
 app.post('/api/yummy/anime/by-selection', handleKodikAnimeBySelection);
 
