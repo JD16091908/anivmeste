@@ -7,7 +7,6 @@ const DONATIONALERTS_URL = SUPPORT_CONFIG.donationAlertsUrl || '#';
 
 const params = new URLSearchParams(window.location.search);
 const roomId = decodeURIComponent(window.location.pathname.split('/room/')[1] || '');
-const roomAccessToken = String(params.get('access') || '').trim();
 
 const SEARCH_ENDPOINTS = ['/api/kodik/search', '/api/yummy/search'];
 const SELECT_ENDPOINTS = ['/api/kodik/anime/by-selection', '/api/yummy/anime/by-selection'];
@@ -751,6 +750,45 @@ function resetBridge() {
   };
 }
 
+function detachPlayerOverlayFromWrapper(playerWrapper) {
+  if (!playerWrapper) return null;
+  const overlayEl = document.getElementById('playerTopOverlay');
+  if (!overlayEl) return null;
+  if (overlayEl.parentNode === playerWrapper) {
+    overlayEl.remove();
+    return overlayEl;
+  }
+  return null;
+}
+
+function attachPlayerOverlayToWrapper(playerWrapper, overlayEl) {
+  if (!playerWrapper || !overlayEl) return;
+  if (!playerWrapper.contains(overlayEl)) {
+    playerWrapper.appendChild(overlayEl);
+  }
+}
+
+function hideOverlayMenus() {
+  isOverlayPlayerOpen = false;
+  isOverlaySeasonOpen = false;
+  isOverlayEpisodeOpen = false;
+  overlayPlayerDropdown?.classList.remove('open');
+  overlaySeasonDropdown?.classList.remove('open');
+  overlayEpisodeDropdown?.classList.remove('open');
+}
+
+function hideOverlay() {
+  hideOverlayMenus();
+  const overlayEl = document.getElementById('playerTopOverlay');
+  overlayEl?.classList.add('hidden');
+}
+
+function showOverlay() {
+  const overlayEl = document.getElementById('playerTopOverlay');
+  if (!overlayEl) return;
+  overlayEl.classList.remove('hidden');
+}
+
 function loadIframe(embedUrl) {
   const playerWrapper = document.getElementById('playerWrapper');
   if (!playerWrapper || !window.PlayerModule) return;
@@ -771,7 +809,14 @@ function loadIframe(embedUrl) {
   lastAppliedAt = 0;
   lastForcedSyncAt = 0;
 
+  // FIX: сохраняем оверлей перед тем, как PlayerModule очистит wrapper
+  const preservedOverlay = detachPlayerOverlayFromWrapper(playerWrapper);
+
   window.PlayerModule.mountIframe(playerWrapper, { src: embedUrl, title: currentState.title });
+
+  // FIX: возвращаем оверлей обратно
+  attachPlayerOverlayToWrapper(playerWrapper, preservedOverlay);
+
   bridge.playerType = typeof window.PlayerModule.detectPlayerType === 'function'
     ? window.PlayerModule.detectPlayerType(embedUrl)
     : 'unknown';
@@ -799,6 +844,15 @@ function loadIframe(embedUrl) {
     pendingPlaybackApply = null;
     setTimeout(() => applyPlaybackStateWhenReady(pb), 500);
   }
+
+  // Страховка: если оверлей ещё не успел появиться — перерисуем через тик
+  setTimeout(() => {
+    if (selectedAnime) {
+      try {
+        renderOverlayControls();
+      } catch {}
+    }
+  }, 50);
 
   if (!isHost && roomId !== 'solo') {
     setTimeout(() => {
@@ -909,134 +963,17 @@ function startUsersRenderTicker() {
   usersRenderTicker = setInterval(() => renderUsers(), 1000);
 }
 
-async function loadWatchOrder(shikimoriId) {
-  if (!shikimoriId) return null;
-  try {
-    const response = await fetch(`/api/watch-order?shikimoriId=${encodeURIComponent(shikimoriId)}`);
-    const data = await readJsonSafely(response);
-    if (!response.ok) throw new Error(data?.error || 'Не удалось загрузить порядок просмотра');
-    return data;
-  } catch {
-    return null;
-  }
+function renderWatchOrderBlock() {
+  return '';
 }
 
-function renderWatchOrderBlock(watchOrderData) {
-  if (!watchOrderData?.items?.length) return '';
-
-  const items = watchOrderData.items || [];
-  const mainItems = items.filter(item => (item.group || 'main') === 'main');
-  const extraItems = items.filter(item => item.group === 'extra');
-
-  const renderItems = list => list.map(item => `
-    <button
-      type="button"
-      class="watch-order-item ${item.isCurrent ? 'current' : ''}"
-      data-watch-order-item="1"
-      data-shikimori-id="${escapeHtml(item.shikimoriId)}"
-      data-anime-id="${escapeHtml(item.animeId)}"
-      data-anime-url="${escapeHtml(item.animeUrl)}"
-      data-title="${escapeHtml(item.title)}"
-      data-year="${escapeHtml(item.year || '')}"
-    >
-      ${item.poster ? `<img src="${escapeHtml(item.poster)}" alt="${escapeHtml(item.title)}" loading="lazy" class="watch-order-poster" />` : ''}
-      <div class="watch-order-item-content">
-        <div class="watch-order-item-main">
-          <span class="watch-order-item-index">${item.order}.</span>
-          <span class="watch-order-item-title">${escapeHtml(item.title)}</span>
-        </div>
-        <div class="watch-order-item-meta">
-          ${escapeHtml(item.kind)}${item.relationLabel ? `, ${escapeHtml(item.relationLabel)}` : ''}${item.year ? `, ${escapeHtml(item.year)}` : ''}
-        </div>
-      </div>
-    </button>
-  `).join('');
-
-  return `
-    <div class="watch-order-block">
-      <button type="button" class="watch-order-toggle ${watchOrderExpanded ? 'expanded' : ''}" id="watchOrderToggleBtn">
-        <span>Порядок просмотра</span>
-        <span class="watch-order-toggle-arrow">${watchOrderExpanded ? '⌃' : '⌄'}</span>
-      </button>
-
-      <div class="watch-order-list ${watchOrderExpanded ? 'expanded' : 'collapsed'}" id="watchOrderList">
-        ${mainItems.length ? `
-          <div class="watch-order-section">
-            <div class="watch-order-section-title">Основной порядок</div>
-            ${renderItems(mainItems)}
-          </div>
-        ` : ''}
-
-        ${extraItems.length ? `
-          <div class="watch-order-section watch-order-section-extra">
-            <button type="button" class="watch-order-subtoggle ${watchOrderExtrasExpanded ? 'expanded' : ''}" id="watchOrderExtrasToggleBtn">
-              <span>Дополнительно</span>
-              <span class="watch-order-toggle-arrow">${watchOrderExtrasExpanded ? '⌃' : '⌄'}</span>
-            </button>
-            <div class="watch-order-extra-list ${watchOrderExtrasExpanded ? 'expanded' : 'collapsed'}" id="watchOrderExtrasList">
-              ${renderItems(extraItems)}
-            </div>
-          </div>
-        ` : ''}
-      </div>
-    </div>
-  `;
-}
-
-function bindWatchOrderEvents() {
-  const toggleBtn = document.getElementById('watchOrderToggleBtn');
-  const listEl = document.getElementById('watchOrderList');
-
-  if (toggleBtn && listEl) {
-    toggleBtn.addEventListener('click', () => {
-      watchOrderExpanded = !watchOrderExpanded;
-      listEl.classList.toggle('expanded', watchOrderExpanded);
-      listEl.classList.toggle('collapsed', !watchOrderExpanded);
-      toggleBtn.classList.toggle('expanded', watchOrderExpanded);
-      const arrow = toggleBtn.querySelector('.watch-order-toggle-arrow');
-      if (arrow) arrow.textContent = watchOrderExpanded ? '⌃' : '⌄';
-    });
-  }
-
-  const extrasToggleBtn = document.getElementById('watchOrderExtrasToggleBtn');
-  const extrasListEl = document.getElementById('watchOrderExtrasList');
-
-  if (extrasToggleBtn && extrasListEl) {
-    extrasToggleBtn.addEventListener('click', () => {
-      watchOrderExtrasExpanded = !watchOrderExtrasExpanded;
-      extrasListEl.classList.toggle('expanded', watchOrderExtrasExpanded);
-      extrasListEl.classList.toggle('collapsed', !watchOrderExtrasExpanded);
-      extrasToggleBtn.classList.toggle('expanded', watchOrderExtrasExpanded);
-      const arrow = extrasToggleBtn.querySelector('.watch-order-toggle-arrow');
-      if (arrow) arrow.textContent = watchOrderExtrasExpanded ? '⌃' : '⌄';
-    });
-  }
-
-  document.querySelectorAll('[data-watch-order-item="1"]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!canControl()) return;
-      const item = {
-        animeId: btn.dataset.animeId,
-        animeUrl: btn.dataset.animeUrl,
-        title: btn.dataset.title,
-        year: btn.dataset.year || '',
-        shikimoriId: Number(btn.dataset.shikimoriId) || null,
-        kodikId: null
-      };
-      await selectAnime(item);
-    });
-  });
-}
+function bindWatchOrderEvents() {}
 
 async function renderSelectedAnimeInfo(anime) {
   if (!selectedAnimeInfo) return;
-
   updateSelectedAnimeInfoContent(anime);
 
-  const watchOrderBlockHtml = anime?.shikimoriId
-    ? renderWatchOrderBlock(await loadWatchOrder(anime.shikimoriId))
-    : '';
-
+  const watchOrderBlockHtml = '';
   if (selectedAnimeInfo.querySelector('.selected-anime-body')) {
     selectedAnimeInfo.querySelector('.selected-anime-body').insertAdjacentHTML('beforeend', watchOrderBlockHtml);
   }
@@ -1116,25 +1053,6 @@ function toggleOverlayDropdown(dropdownElement, isOpenState) {
   return nextState;
 }
 
-function hideOverlayMenus() {
-  isOverlayPlayerOpen = false;
-  isOverlaySeasonOpen = false;
-  isOverlayEpisodeOpen = false;
-  overlayPlayerDropdown?.classList.remove('open');
-  overlaySeasonDropdown?.classList.remove('open');
-  overlayEpisodeDropdown?.classList.remove('open');
-}
-
-function hideOverlay() {
-  hideOverlayMenus();
-  playerTopOverlay?.classList.add('hidden');
-}
-
-function showOverlay() {
-  if (!playerTopOverlay) return;
-  playerTopOverlay.classList.remove('hidden');
-}
-
 function renderOverlayControls() {
   if (!selectedAnime) {
     hideOverlay();
@@ -1152,7 +1070,7 @@ function renderOverlayControls() {
   const seasons = getUniqueSeasons(byPlayer);
 
   if (!selectedSeason) selectedSeason = seasons[0]?.season || 1;
-  if (!seasons.find(s => s.season === selectedSeason)) selectedSeason = seasons[0]?.season || 1;
+  if (seasons.length && !seasons.find(s => s.season === selectedSeason)) selectedSeason = seasons[0]?.season || 1;
 
   const bySeason = getVideosBySelectedSeason(byPlayer);
   const episodes = getUniqueEpisodes(bySeason);
@@ -1161,31 +1079,29 @@ function renderOverlayControls() {
   if (overlaySeasonBtnText) overlaySeasonBtnText.textContent = `${selectedSeason || 1} сезон`;
   if (overlayEpisodeBtnText) overlayEpisodeBtnText.textContent = `${currentState.episodeNumber || episodes[0]?.episodeNumber || 1} серия`;
 
-  overlayPlayerMenu.innerHTML = players.map(player => `
+  overlayPlayerMenu && (overlayPlayerMenu.innerHTML = players.map(player => `
     <button type="button" class="overlay-dropdown-item ${player.name === selectedPlayer ? 'active' : ''}" data-player="${escapeHtml(player.name)}">
       <span>${escapeHtml(player.name)}</span>
       <span class="overlay-item-count">${player.count}</span>
     </button>
-  `).join('');
+  `).join(''));
 
-  overlaySeasonMenu.innerHTML = seasons.map(season => `
+  overlaySeasonMenu && (overlaySeasonMenu.innerHTML = seasons.map(season => `
     <button type="button" class="overlay-dropdown-item ${season.season === selectedSeason ? 'active' : ''}" data-season="${season.season}">
       <span>${season.season} сезон</span>
       <span class="overlay-item-count">${season.count}</span>
     </button>
-  `).join('');
+  `).join(''));
 
-  overlayEpisodeMenu.innerHTML = episodes.map(episode => `
+  overlayEpisodeMenu && (overlayEpisodeMenu.innerHTML = episodes.map(episode => `
     <button type="button" class="overlay-dropdown-item overlay-dropdown-item-episode ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}" data-episode="${episode.episodeNumber}">
       ${episode.episodeNumber}
     </button>
-  `).join('');
+  `).join(''));
 
-  if (overlaySeasonDropdown) {
-    overlaySeasonDropdown.style.display = seasons.length > 1 ? '' : 'none';
-  }
+  // ВАЖНО: больше НЕ прячем выбор сезона при одном сезоне — чтобы всегда было как на скрине
 
-  overlayPlayerMenu.querySelectorAll('[data-player]').forEach(btn => {
+  overlayPlayerMenu?.querySelectorAll('[data-player]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
       selectedPlayer = btn.dataset.player;
@@ -1204,7 +1120,7 @@ function renderOverlayControls() {
     });
   });
 
-  overlaySeasonMenu.querySelectorAll('[data-season]').forEach(btn => {
+  overlaySeasonMenu?.querySelectorAll('[data-season]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
       selectedSeason = Number(btn.dataset.season) || 1;
@@ -1218,7 +1134,7 @@ function renderOverlayControls() {
     });
   });
 
-  overlayEpisodeMenu.querySelectorAll('[data-episode]').forEach(btn => {
+  overlayEpisodeMenu?.querySelectorAll('[data-episode]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
       const episodeNumber = Number(btn.dataset.episode);
@@ -1361,13 +1277,11 @@ function reopenSearchDropdownFromInput() {
     return;
   }
 
-  // 1) Если это последний запрос — просто показываем
   if (lastSearchResults.length && lastSearchQueryNormalized === normalizedQuery) {
     renderAnimeResults(lastSearchResults);
     return;
   }
 
-  // 2) Если есть в клиентском кэше — показываем
   const cached = getClientCachedSearch(normalizedQuery);
   if (cached && cached.length) {
     lastSearchQueryNormalized = normalizedQuery;
@@ -1377,7 +1291,6 @@ function reopenSearchDropdownFromInput() {
     return;
   }
 
-  // 3) Иначе — выполняем поиск по текущему значению без необходимости "допечатывать"
   triggerSearchNow(rawQuery);
 }
 
@@ -1447,6 +1360,7 @@ async function selectAnime(item) {
     if (!context) {
       await renderSelectedAnimeInfo(selectedAnime);
       showPlaceholderUi('Нет доступных серий', 'Для выбранного тайтла не удалось найти рабочий плеер');
+      hideOverlay();
       return;
     }
 
@@ -1565,7 +1479,7 @@ if (window.PlayerModule?.onEpisodeEnded) {
 
 socket.on('connect', () => {
   if (roomId !== 'solo') {
-    socket.emit('join-room', { roomId, username, userKey, accessToken: roomAccessToken });
+    socket.emit('join-room', { roomId, username, userKey });
   } else {
     isHost = true;
     updateControlState();
@@ -1626,6 +1540,7 @@ socket.on('sync-state', (state) => {
     setTimeout(() => applyPlaybackStateWhenReady(pendingPlaybackApply), 450);
   } else {
     showPlaceholderUi('Ничего не выбрано', isHost ? 'Выберите аниме' : 'Хост пока не запустил тайтл');
+    hideOverlay();
   }
 });
 
@@ -1649,6 +1564,7 @@ socket.on('video-changed', (state) => {
     pendingPlaybackApply = currentState.playback;
   } else {
     showPlaceholderUi('Ничего не выбрано', 'Хост пока не запустил тайтл');
+    hideOverlay();
   }
 });
 
@@ -1698,12 +1614,10 @@ if (searchInput) {
     debouncedSearchAnime(searchInput.value);
   });
 
-  // FIX #1: показываем результаты по клику (даже если focus уже был)
   searchInput.addEventListener('click', () => {
     reopenSearchDropdownFromInput();
   });
 
-  // Плюс оставляем поведение на focus
   searchInput.addEventListener('focus', () => {
     reopenSearchDropdownFromInput();
   });
