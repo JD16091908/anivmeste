@@ -27,6 +27,39 @@
   <meta property="og:title" content="Комната просмотра — Anivmeste" />
   <meta property="og:description" content="Подключайся к совместному просмотру аниме на Anivmeste." />
   <meta property="og:image" content="https://anivmeste.ru/og-image.svg" />
+
+  <!-- FIX: вывод выбора сезона/серии в правом верхнем углу плеера -->
+  <style>
+    #playerWrapper { position: relative; }
+
+    #playerTopOverlay {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      left: auto;
+      bottom: auto;
+      width: auto;
+      z-index: 60;
+      pointer-events: none; /* чтобы не блокировать клики по плееру */
+    }
+
+    #playerTopOverlay .player-overlay-controls {
+      pointer-events: auto; /* кликабельны только сами кнопки */
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Меню дропдаунов открываются вправо */
+    #playerTopOverlay .overlay-dropdown-menu {
+      right: 0;
+      left: auto;
+    }
+
+    /* По твоему запросу — оставляем только сезон/серия как на скрине */
+    #overlayPlayerDropdown {
+      display: none !important;
+    }
+  </style>
 </head>
 <body>
   <div class="room-page" id="roomPage">

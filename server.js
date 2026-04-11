@@ -699,167 +699,6 @@ function isBlockedForCountry(countryCode, checkData) {
   return false;
 }
 
-function isAnimeBlockedForRequest(req, selected = {}, foundItem = null) {
-  const geo = getCountryByIp(req);
-
-  const shikimoriIds = [
-    selected?.shikimoriId,
-    foundItem?.shikimori_id,
-    foundItem?.material_data?.shikimori_id
-  ].filter(Boolean).map(Number);
-
-  const titles = [
-    selected?.title,
-    foundItem ? normalizeTitle(foundItem) : '',
-    foundItem?.material_data?.title,
-    foundItem?.material_data?.ru_title,
-    foundItem?.material_data?.anime_title,
-    foundItem?.material_data?.full_title
-  ].filter(Boolean);
-
-  for (const id of shikimoriIds) {
-    if (isBlockedForCountry(geo.country, { shikimoriId: id })) {
-      return {
-        blocked: true,
-        country: geo.country,
-        ip: geo.ip,
-        reason: 'id'
-      };
-    }
-  }
-
-  for (const title of titles) {
-    if (isBlockedForCountry(geo.country, { title })) {
-      return {
-        blocked: true,
-        country: geo.country,
-        ip: geo.ip,
-        reason: 'title'
-      };
-    }
-  }
-
-  return {
-    blocked: false,
-    country: geo.country,
-    ip: geo.ip
-  };
-}
-
-async function checkHostAvailable(hostname) {
-  const now = Date.now();
-  const cached = dnsAvailabilityCache.get(hostname);
-
-  if (cached && now - cached.checkedAt < 60 * 1000) {
-    return cached.ok;
-  }
-
-  try {
-    const r = await dns.lookup(hostname);
-    const ok = !!r?.address;
-    dnsAvailabilityCache.set(hostname, { ok, checkedAt: now });
-    return ok;
-  } catch {
-    dnsAvailabilityCache.set(hostname, { ok: false, checkedAt: now });
-    return false;
-  }
-}
-
-async function kodikGet(endpoint, params = {}) {
-  if (!await checkHostAvailable('kodik-api.com')) {
-    throw new Error('DNS failed for kodik-api.com');
-  }
-
-  const queryParams = {
-    token: KODIK_TOKEN,
-    limit: '60',
-    ...params
-  };
-
-  Object.keys(queryParams).forEach(key => {
-    if (queryParams[key] === undefined || queryParams[key] === null || queryParams[key] === '') {
-      delete queryParams[key];
-    }
-  });
-
-  const url = `${KODIK_API_BASE}${endpoint}?${new URLSearchParams(queryParams).toString()}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' }
-  });
-
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`Kodik HTTP ${response.status}: ${text.slice(0, 300)}`);
-  }
-
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid JSON: ${text.slice(0, 300)}`);
-  }
-
-  if (data?.failed) throw new Error(data.failed);
-  return data;
-}
-
-async function shikimoriGet(endpoint) {
-  const response = await fetch(`${SHIKIMORI_API_BASE}${endpoint}`, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'Anivmeste/1.0'
-    }
-  });
-
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`Shikimori HTTP ${response.status}: ${text.slice(0, 300)}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Invalid Shikimori JSON: ${text.slice(0, 300)}`);
-  }
-}
-
-async function shikimoriSearchAnimes(searchQuery) {
-  const normalized = normalizeSearchText(searchQuery);
-  if (!normalized || normalized.length < 2) return [];
-
-  const cached = getCachedShikimoriSearch(normalized);
-  if (cached) return cached;
-
-  const params = new URLSearchParams({
-    search: searchQuery,
-    limit: '12',
-    order: 'ranked'
-  });
-
-  const data = await shikimoriGet(`/animes?${params.toString()}`);
-  const list = Array.isArray(data) ? data : [];
-
-  setCachedShikimoriSearch(normalized, list);
-  return list;
-}
-
-function normalizePoster(item) {
-  const poster =
-    item?.poster_url ||
-    item?.poster ||
-    item?.material_data?.poster_url ||
-    item?.material_data?.poster ||
-    item?.material_data?.screenshots?.[0] ||
-    '';
-
-  if (!poster) return '';
-  return poster.startsWith('//') ? `https:${poster}` : poster;
-}
-
 function normalizeTitle(item) {
   return (
     item?.title ||
@@ -888,6 +727,19 @@ function getAllTitles(item) {
 
 function normalizeDescription(item) {
   return item?.material_data?.description || item?.description || '';
+}
+
+function normalizePoster(item) {
+  const poster =
+    item?.poster_url ||
+    item?.poster ||
+    item?.material_data?.poster_url ||
+    item?.material_data?.poster ||
+    item?.material_data?.screenshots?.[0] ||
+    '';
+
+  if (!poster) return '';
+  return poster.startsWith('//') ? `https:${poster}` : poster;
 }
 
 function normalizeYear(item) {
@@ -957,6 +809,16 @@ function hasFullTokenMatch(title, queryTokens) {
   );
 }
 
+function isHxHQuery(normalizedQuery) {
+  const q = String(normalizedQuery || '');
+  return q.includes('хантер') || q.includes('охотник') || q.includes('hunter');
+}
+
+function isPilotTitle(value) {
+  const t = normalizeSearchText(value);
+  return t.includes('пилот') || t.includes('pilot');
+}
+
 function calcSingleTitleScore(normalizedTitle, queryVariants, normalizedQuery) {
   let score = 0;
   const title = normalizeSearchText(normalizedTitle);
@@ -1019,27 +881,16 @@ function calcSingleTitleScore(normalizedTitle, queryVariants, normalizedQuery) {
           tokenScore += 10000;
         }
 
-        if (
-          normalizedQuery.includes('хантер') ||
-          normalizedQuery.includes('hunter') ||
-          normalizedQuery.includes('охотник')
-        ) {
-          const hxhPatterns = [
-            'hunter x hunter',
-            'хантер x хантер',
-            'охотник x охотник'
-          ];
-
+        if (isHxHQuery(normalizedQuery)) {
           const titleNormalized = normalizeSearchText(titleForm);
 
-          if (hxhPatterns.some(pattern => titleNormalized.includes(pattern))) {
-            tokenScore += 20000;
+          // Убираем “пилотную серию” из топа
+          if (titleNormalized.includes('пилот') || titleNormalized.includes('pilot')) {
+            tokenScore -= 30000;
           }
 
-          if (
-            titleNormalized.includes('городской охотник') ||
-            titleNormalized.includes('city hunter')
-          ) {
+          // Режем City Hunter / Городской охотник
+          if (titleNormalized.includes('городской охотник') || titleNormalized.includes('city hunter')) {
             tokenScore -= 15000;
           }
         }
@@ -1056,87 +907,6 @@ function calcSingleTitleScore(normalizedTitle, queryVariants, normalizedQuery) {
   }
 
   return score;
-}
-
-function scoreShikimoriAnimeCandidate(anime, queryVariants, normalizedQuery) {
-  const titles = [
-    anime?.russian,
-    anime?.name
-  ].filter(Boolean);
-
-  let score = 0;
-  for (const title of titles) {
-    score = Math.max(score, calcSingleTitleScore(title, queryVariants, normalizedQuery));
-  }
-  return score;
-}
-
-function isLatinText(value) {
-  return /[a-z]/i.test(String(value || ''));
-}
-
-function pickShikimoriSearchTerm(expandedQueries, normalizedQuery) {
-  const pool = dedupeArray([normalizedQuery, ...(expandedQueries || [])])
-    .map(q => String(q || '').trim())
-    .filter(q => q.length >= 2);
-
-  if (!pool.length) return null;
-
-  const latinCandidates = pool.filter(isLatinText);
-  if (latinCandidates.length) {
-    latinCandidates.sort((a, b) => b.length - a.length);
-    return latinCandidates[0] || null;
-  }
-
-  pool.sort((a, b) => b.length - a.length);
-  return pool[0] || null;
-}
-
-function primaryQueryPriority(q, normalizedQuery) {
-  const n = normalizeSearchText(q);
-  if (!n) return -999;
-
-  let score = 0;
-
-  if (n === normalizedQuery) score += 10000;
-  if (isLatinText(n)) score += 2600;
-  if (/[а-я]/i.test(n)) score += 1800;
-
-  if (n.includes(' ')) score += 1200;
-  if (!n.includes(' ') && n.length >= 8) score -= 250;
-
-  score += Math.min(1600, n.length * 45);
-
-  const qYear = normalizedQuery.match(/\b(19|20)\d{2}\b/)?.[0];
-  if (qYear && n.includes(qYear)) score += 450;
-
-  return score;
-}
-
-function selectPrimaryKodikQueries(rawQuery, expandedQueries, normalizedQuery) {
-  const candidates = dedupeArray([
-    rawQuery,
-    normalizedQuery,
-    ...(expandedQueries || [])
-  ])
-    .map(q => normalizeSearchText(q))
-    .filter(Boolean);
-
-  const scored = candidates
-    .map(q => ({ q, score: primaryQueryPriority(q, normalizedQuery) }))
-    .sort((a, b) => b.score - a.score)
-    .map(item => item.q);
-
-  let primary = scored.slice(0, 5);
-
-  const latinBest = scored.find(q => isLatinText(q));
-  if (latinBest && !primary.includes(latinBest)) {
-    primary = [latinBest, ...primary].slice(0, 5);
-  }
-
-  primary = primary.filter(q => q.length >= 2);
-
-  return dedupeArray(primary).slice(0, 5);
 }
 
 function titleScore(item, queryVariants, normalizedQuery) {
@@ -1233,587 +1003,112 @@ function dedupeSearchResults(items, queryVariants) {
   return [...strictMap.values()];
 }
 
-function buildEpisodeIframe(link) {
-  if (!link) return null;
-  return String(link).startsWith('//') ? `https:${link}` : link;
-}
+async function checkHostAvailable(hostname) {
+  const now = Date.now();
+  const cached = dnsAvailabilityCache.get(hostname);
 
-function extractEpisodesFromItem(item) {
-  const episodes = [];
-
-  const directEpisodes = item?.episodes;
-  if (directEpisodes && typeof directEpisodes === 'object') {
-    for (const [episodeNumber, link] of Object.entries(directEpisodes)) {
-      const iframeUrl = buildEpisodeIframe(
-        typeof link === 'string' ? link : link?.link || link?.url || null
-      );
-
-      if (!iframeUrl) continue;
-
-      episodes.push({
-        videoId: `${item?.id || 'anime'}-${episodeNumber}-${item?.translation?.id || 't'}`,
-        number: Number(episodeNumber) || 0,
-        season: Number(item?.season) || Number(item?.material_data?.season) || 1,
-        index: Number(episodeNumber) || 0,
-        iframeUrl,
-        dubbing: item?.translation?.title || item?.translation?.name || '',
-        player: item?.translation?.title || item?.translation?.name || '',
-        playerId: item?.translation?.id || null,
-        translationId: item?.translation?.id || null,
-        translationTitle: item?.translation?.title || item?.translation?.name || '',
-        views: 0,
-        duration: 0
-      });
-    }
+  if (cached && now - cached.checkedAt < 60 * 1000) {
+    return cached.ok;
   }
-
-  if (episodes.length > 0) return episodes;
-
-  const seasons = item?.seasons || {};
-  for (const [seasonNumber, seasonData] of Object.entries(seasons)) {
-    if (!seasonData || typeof seasonData !== 'object') continue;
-
-    const seasonEpisodes = seasonData?.episodes || seasonData;
-    if (!seasonEpisodes || typeof seasonEpisodes !== 'object') continue;
-
-    for (const [episodeNumber, link] of Object.entries(seasonEpisodes)) {
-      const iframeUrl = buildEpisodeIframe(
-        typeof link === 'string' ? link : link?.link || link?.url || null
-      );
-
-      if (!iframeUrl) continue;
-
-      episodes.push({
-        videoId: `${seasonNumber}-${episodeNumber}-${item?.translation?.id || 't'}`,
-        number: Number(episodeNumber) || 0,
-        season: Number(seasonNumber) || 1,
-        index: Number(episodeNumber) || 0,
-        iframeUrl,
-        dubbing: item?.translation?.title || item?.translation?.name || '',
-        player: item?.translation?.title || item?.translation?.name || '',
-        playerId: item?.translation?.id || null,
-        translationId: item?.translation?.id || null,
-        translationTitle: item?.translation?.title || item?.translation?.name || '',
-        views: 0,
-        duration: 0
-      });
-    }
-  }
-
-  if (episodes.length > 0) return episodes;
-
-  const link = buildEpisodeIframe(item?.link);
-  const episodeNumber =
-    Number(item?.episode) ||
-    Number(item?.last_episode) ||
-    Number(item?.sort_episode) ||
-    Number(item?.material_data?.episode) ||
-    Number(item?.material_data?.last_episode) ||
-    null;
-
-  if (link) {
-    episodes.push({
-      videoId: `${item?.id || 'movie'}-${episodeNumber || 1}-${item?.translation?.id || 't'}`,
-      number: episodeNumber || 1,
-      season: Number(item?.season) || Number(item?.material_data?.season) || 1,
-      index: episodeNumber || 1,
-      iframeUrl: link,
-      dubbing: item?.translation?.title || item?.translation?.name || '',
-      player: item?.translation?.title || item?.translation?.name || '',
-      playerId: item?.translation?.id || null,
-      translationId: item?.translation?.id || null,
-      translationTitle: item?.translation?.title || item?.translation?.name || '',
-      views: 0,
-      duration: 0
-    });
-  }
-
-  return episodes;
-}
-
-function mergeEpisodes(items) {
-  const episodeMap = new Map();
-
-  for (const item of items || []) {
-    const episodes = extractEpisodesFromItem(item);
-
-    for (const episode of episodes) {
-      const key = `${episode.season}:${episode.number}:${episode.translationId || episode.translationTitle || ''}`;
-      if (!episodeMap.has(key)) {
-        episodeMap.set(key, episode);
-      }
-    }
-  }
-
-  return [...episodeMap.values()].sort((a, b) => {
-    if ((a.season || 1) !== (b.season || 1)) return (a.season || 1) - (b.season || 1);
-    return (a.number || 0) - (b.number || 0);
-  });
-}
-
-function strictMatchResults(items, selected) {
-  const selectedTitle = normalizeSearchText(selected?.title);
-  const selectedYear = String(selected?.year || '');
-  const selectedShikimori = String(selected?.shikimoriId || '');
-  const selectedKodik = String(selected?.kodikId || '');
-  const selectedVariants = expandQueryVariants(selectedTitle);
-
-  let filtered = items.filter(item => {
-    if (!isAllowedAnimeType(item)) return false;
-
-    const itemTitles = getAllTitles(item).map(normalizeSearchText);
-    const itemYear = String(normalizeYear(item) || '');
-    const itemShikimori = String(getShikimoriId(item) || '');
-    const itemKodik = String(getKodikId(item) || '');
-
-    const idMatch =
-      (selectedShikimori && itemShikimori === selectedShikimori) ||
-      (selectedKodik && itemKodik === selectedKodik);
-
-    const titleMatch =
-      selectedVariants.length &&
-      itemTitles.some(itemTitle =>
-        selectedVariants.some(selectedVariant =>
-          itemTitle === selectedVariant ||
-          itemTitle.includes(selectedVariant) ||
-          selectedVariant.includes(itemTitle)
-        )
-      );
-
-    const yearMatch = !selectedYear || itemYear === selectedYear;
-
-    return (idMatch || titleMatch) && yearMatch;
-  });
-
-  if (filtered.length > 0) return filtered;
-
-  filtered = items.filter(item => {
-    const itemTitles = getAllTitles(item).map(normalizeSearchText);
-    return selectedVariants.length && itemTitles.some(itemTitle =>
-      selectedVariants.some(selectedVariant =>
-        itemTitle === selectedVariant ||
-        itemTitle.includes(selectedVariant) ||
-        selectedVariant.includes(itemTitle)
-      )
-    );
-  });
-
-  return filtered;
-}
-
-async function fetchFullEpisodesForLongAnime(results) {
-  const first = results[0];
-  if (!first) return results;
-
-  const currentEpisodesCount = mergeEpisodes(results).length;
-  const maxKnownEpisode = getLastEpisode(first);
-
-  if (currentEpisodesCount >= 10 || maxKnownEpisode < 20) {
-    return results;
-  }
-
-  console.log(`[Long Anime Detected] ${normalizeTitle(first)} | episodes found: ${currentEpisodesCount}, last known: ${maxKnownEpisode}`);
-  console.log('Запрашиваю полный список серий по material_id');
-
-  const materialId = getMaterialId(first);
-  if (!materialId) return results;
 
   try {
-    const fullData = await kodikGet('/list', {
-      material_id: materialId,
-      with_material_data: 'true',
-      with_episodes: 'true',
-      types: 'anime-serial,anime'
-    });
-
-    const fullResults = Array.isArray(fullData?.results) ? fullData.results : [];
-    return [...results, ...fullResults];
-  } catch (error) {
-    console.log('Не удалось получить полный список серий:', error.message);
-    return results;
+    const r = await dns.lookup(hostname);
+    const ok = !!r?.address;
+    dnsAvailabilityCache.set(hostname, { ok, checkedAt: now });
+    return ok;
+  } catch {
+    dnsAvailabilityCache.set(hostname, { ok: false, checkedAt: now });
+    return false;
   }
 }
 
-async function fetchAnimeBySelection(selected) {
-  if (selected?.shikimoriId) {
-    const [searchData, listData] = await Promise.all([
-      kodikGet('/search', {
-        shikimori_id: selected.shikimoriId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      }),
-      kodikGet('/list', {
-        shikimori_id: selected.shikimoriId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      })
-    ]);
-
-    let results = [
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
-    ];
-
-    return await fetchFullEpisodesForLongAnime(results);
+async function kodikGet(endpoint, params = {}) {
+  if (!await checkHostAvailable('kodik-api.com')) {
+    throw new Error('DNS failed for kodik-api.com');
   }
 
-  if (selected?.kodikId) {
-    const [searchData, listData] = await Promise.all([
-      kodikGet('/search', {
-        id: selected.kodikId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      }),
-      kodikGet('/list', {
-        id: selected.kodikId,
-        with_material_data: 'true',
-        with_episodes: 'true',
-        types: 'anime-serial,anime'
-      })
-    ]);
-
-    let results = [
-      ...(Array.isArray(searchData?.results) ? searchData.results : []),
-      ...(Array.isArray(listData?.results) ? listData.results : [])
-    ];
-
-    return await fetchFullEpisodesForLongAnime(results);
-  }
-
-  if (selected?.title) {
-    const searchVariants = expandQueryVariants(selected.title).slice(0, 3);
-    const requests = [];
-
-    for (const variant of searchVariants) {
-      requests.push(
-        kodikGet('/search', {
-          title: variant,
-          with_material_data: 'true',
-          with_episodes: 'true',
-          types: 'anime-serial,anime'
-        })
-      );
-    }
-
-    const responses = await Promise.all(requests);
-    const results = [];
-
-    for (const response of responses) {
-      if (Array.isArray(response?.results)) {
-        results.push(...response.results);
-      }
-    }
-
-    return await fetchFullEpisodesForLongAnime(results);
-  }
-
-  return [];
-}
-
-function normalizeShikiType(kind) {
-  const value = String(kind || '').toLowerCase();
-
-  if (value === 'tv') return 'TV';
-  if (value === 'movie') return 'Фильм';
-  if (value === 'ova') return 'OVA';
-  if (value === 'ona') return 'ONA';
-  if (value === 'special') return 'Спешл';
-  if (value === 'music') return 'Музыкальное видео';
-  return value ? value.toUpperCase() : 'Anime';
-}
-
-function relationLabel(relation) {
-  const rel = String(relation || '').toLowerCase();
-
-  if (rel === 'prequel') return 'Приквел';
-  if (rel === 'sequel') return 'Продолжение';
-  if (rel === 'side_story') return 'Побочная история';
-  if (rel === 'alternative_version') return 'Альтернативная версия';
-  if (rel === 'alternative_setting') return 'Альтернативный мир';
-  if (rel === 'full_story') return 'Полная версия истории';
-  if (rel === 'parent_story') return 'Основная история';
-  if (rel === 'summary') return 'Рекап';
-  if (rel === 'character') return 'История персонажей';
-  if (rel === 'spin_off') return 'Спин-офф';
-  if (rel === 'adaptation') return 'Экранизация';
-  if (rel === 'other') return 'Связанный тайтл';
-  if (rel === 'current') return 'Выбранный тайтл';
-  if (rel === 'mainline') return 'Основная линия';
-  if (rel === 'extra') return 'Дополнительно';
-
-  return 'Связанный тайтл';
-}
-
-function isRecapOrJunkRelation(relation, kind, title = '') {
-  const rel = String(relation || '').toLowerCase();
-  const k = String(kind || '').toLowerCase();
-  const t = String(title || '').toLowerCase();
-
-  if (rel === 'summary' || rel === 'character') return true;
-  if (t.includes('recap') || t.includes('summary') || t.includes('рекап')) return true;
-  if (k === 'special' && rel === 'other') return true;
-
-  return false;
-}
-
-function graphNodeFromAnime(anime, relation = 'other') {
-  if (!anime?.id) return null;
-
-  return {
-    shikimoriId: anime.id,
-    title: anime.russian || anime.name || 'Без названия',
-    year: anime.aired_on ? Number(String(anime.aired_on).slice(0, 4)) || null : null,
-    kind: anime.kind || '',
-    relation,
-    relationLabel: relationLabel(relation),
-    status: anime.status || '',
-    poster: anime.image?.original ? `https://shikimori.one${anime.image.original}` : '',
-    animeUrl: `shikimori:${anime.id}`,
-    animeId: `shikimori:${anime.id}`
+  const queryParams = {
+    token: KODIK_TOKEN,
+    limit: '60',
+    ...params
   };
-}
 
-async function getAnimeWithRelated(shikimoriId) {
-  const [animeData, relatedData] = await Promise.all([
-    shikimoriGet(`/animes/${shikimoriId}`),
-    shikimoriGet(`/animes/${shikimoriId}/related`)
-  ]);
-
-  return {
-    anime: animeData,
-    related: Array.isArray(relatedData) ? relatedData : []
-  };
-}
-
-function mainlinePriority(node) {
-  const kind = String(node?.kind || '').toLowerCase();
-  const year = Number(node?.year) || 9999;
-
-  let score = 0;
-
-  if (kind === 'tv') score += 5000;
-  else if (kind === 'movie') score += 2500;
-  else if (kind === 'ova') score += 1500;
-  else if (kind === 'ona') score += 1200;
-  else if (kind === 'special') score += 500;
-
-  score -= year;
-
-  return score;
-}
-
-function extraPriority(node) {
-  const rel = String(node?.relation || '').toLowerCase();
-  const kind = String(node?.kind || '').toLowerCase();
-
-  let score = 0;
-
-  if (rel === 'parent_story') score += 1000;
-  if (rel === 'full_story') score += 900;
-  if (rel === 'side_story') score += 800;
-  if (rel === 'spin_off') score += 700;
-  if (rel === 'alternative_version') score += 600;
-  if (rel === 'alternative_setting') score += 500;
-  if (rel === 'other') score += 300;
-
-  if (kind === 'tv') score += 300;
-  else if (kind === 'movie') score += 250;
-  else if (kind === 'ova') score += 200;
-  else if (kind === 'ona') score += 180;
-  else if (kind === 'special') score += 50;
-
-  return score;
-}
-
-async function buildWatchOrder(startShikimoriId) {
-  const cache = new Map();
-  const visited = new Set();
-
-  async function loadNode(id) {
-    if (cache.has(id)) return cache.get(id);
-    const data = await getAnimeWithRelated(id);
-    cache.set(id, data);
-    return data;
-  }
-
-  async function collectConnectedFranchise(rootId) {
-    const queue = [rootId];
-    const nodesMap = new Map();
-
-    while (queue.length) {
-      const currentId = queue.shift();
-      if (!currentId || visited.has(currentId)) continue;
-      visited.add(currentId);
-
-      const data = await loadNode(currentId);
-      const currentNode = graphNodeFromAnime(data.anime, currentId === rootId ? 'current' : 'mainline');
-
-      if (currentNode) {
-        nodesMap.set(currentNode.shikimoriId, currentNode);
-      }
-
-      for (const item of data.related) {
-        const anime = item?.anime;
-        const relation = String(item?.relation || '').toLowerCase();
-        if (!anime?.id) continue;
-
-        const node = graphNodeFromAnime(anime, relation);
-        if (!node) continue;
-
-        if (!nodesMap.has(node.shikimoriId)) {
-          nodesMap.set(node.shikimoriId, node);
-        }
-
-        if (!isRecapOrJunkRelation(relation, anime.kind, anime.russian || anime.name || '')) {
-          queue.push(anime.id);
-        }
-      }
+  Object.keys(queryParams).forEach(key => {
+    if (queryParams[key] === undefined || queryParams[key] === null || queryParams[key] === '') {
+      delete queryParams[key];
     }
-
-    return [...nodesMap.values()];
-  }
-
-  const allNodes = await collectConnectedFranchise(startShikimoriId);
-
-  const filteredNodes = allNodes.filter(node =>
-    !isRecapOrJunkRelation(node.relation, node.kind, node.title)
-  );
-
-  const currentNode = filteredNodes.find(node => node.shikimoriId === startShikimoriId) || null;
-
-  const mainlineCandidates = filteredNodes.filter(node => {
-    const rel = String(node.relation || '').toLowerCase();
-    return rel === 'current' || rel === 'prequel' || rel === 'sequel';
   });
 
-  const tvMainline = mainlineCandidates.filter(node => String(node.kind || '').toLowerCase() === 'tv');
+  const url = `${KODIK_API_BASE}${endpoint}?${new URLSearchParams(queryParams).toString()}`;
 
-  let mainlineBase = tvMainline.length ? tvMainline : mainlineCandidates;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' }
+  });
 
-  if (!mainlineBase.some(node => node.shikimoriId === startShikimoriId) && currentNode) {
-    mainlineBase = [...mainlineBase, currentNode];
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Kodik HTTP ${response.status}: ${text.slice(0, 300)}`);
   }
 
-  const mainline = [...mainlineBase]
-    .filter((node, index, arr) => arr.findIndex(item => item.shikimoriId === node.shikimoriId) === index)
-    .sort((a, b) => {
-      const yearA = Number(a.year) || 9999;
-      const yearB = Number(b.year) || 9999;
-
-      if (yearA !== yearB) return yearA - yearB;
-
-      const scoreA = mainlinePriority(a);
-      const scoreB = mainlinePriority(b);
-      if (scoreA !== scoreB) return scoreB - scoreA;
-
-      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
-    })
-    .map(node => ({
-      ...node,
-      relation: node.shikimoriId === startShikimoriId ? 'current' : 'mainline',
-      relationLabel: node.shikimoriId === startShikimoriId ? 'Выбранный тайтл' : 'Основная линия',
-      group: 'main',
-      isCurrent: node.shikimoriId === startShikimoriId
-    }));
-
-  const mainlineIds = new Set(mainline.map(node => node.shikimoriId));
-
-  const extras = filteredNodes
-    .filter(node => !mainlineIds.has(node.shikimoriId))
-    .sort((a, b) => {
-      const scoreA = extraPriority(a);
-      const scoreB = extraPriority(b);
-      if (scoreA !== scoreB) return scoreB - scoreA;
-
-      const yearA = Number(a.year) || 9999;
-      const yearB = Number(b.year) || 9999;
-      if (yearA !== yearB) return yearA - yearB;
-
-      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
-    })
-    .map(node => ({
-      ...node,
-      relationLabel: relationLabel(node.relation),
-      group: 'extra',
-      isCurrent: node.shikimoriId === startShikimoriId
-    }));
-
-  const finalItems = [...mainline, ...extras];
-
-  return {
-    items: finalItems.map((item, index) => ({
-      order: index + 1,
-      shikimoriId: item.shikimoriId,
-      animeId: item.animeId,
-      animeUrl: item.animeUrl,
-      title: item.title,
-      year: item.year,
-      kind: normalizeShikiType(item.kind),
-      relation: item.relation,
-      relationLabel: item.relationLabel,
-      status: item.status,
-      poster: item.poster,
-      isCurrent: !!item.isCurrent,
-      group: item.group || 'main'
-    }))
-  };
-}
-
-app.get('/api/watch-order', async (req, res) => {
+  let data;
   try {
-    const shikimoriId = Number(req.query.shikimoriId);
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Invalid JSON: ${text.slice(0, 300)}`);
+  }
 
-    if (!shikimoriId || Number.isNaN(shikimoriId)) {
-      return res.status(400).json({ error: 'Некорректный shikimoriId' });
+  if (data?.failed) throw new Error(data.failed);
+  return data;
+}
+
+function getSearchCacheKey(query) {
+  return normalizeSearchText(query);
+}
+
+function pruneSearchCache() {
+  const now = Date.now();
+
+  for (const [key, value] of searchResponseCache.entries()) {
+    if (!value || now - value.createdAt > SEARCH_CACHE_TTL_MS) {
+      searchResponseCache.delete(key);
     }
-
-    const data = await buildWatchOrder(shikimoriId);
-    res.json(data);
-  } catch (error) {
-    console.error('WATCH ORDER ERROR:', error.message);
-    res.status(500).json({ error: 'Не удалось загрузить порядок просмотра', details: error.message });
   }
-});
 
-app.get('/api/geo', (req, res) => {
-  const geo = getCountryByIp(req);
-  res.json({
-    ip: geo.ip,
-    country: geo.country
-  });
-});
+  if (searchResponseCache.size <= SEARCH_CACHE_MAX_ENTRIES) return;
 
-app.get('/api/blocked-anime', (req, res) => {
-  const geo = getCountryByIp(req);
-  const config = getBlockedAnimeConfigForCountry(geo.country);
+  const entries = [...searchResponseCache.entries()]
+    .sort((a, b) => a[1].createdAt - b[1].createdAt);
 
-  res.json({
-    country: geo.country,
-    titles: config.titles.length,
-    shikimoriIds: config.shikimoriIds.length,
-    titlesList: config.titles,
-    shikimoriIdsList: config.shikimoriIds
-  });
-});
-
-app.get('/api/health/kodik', async (req, res) => {
-  try {
-    const data = await kodikGet('/search', {
-      title: 'Naruto',
-      with_material_data: 'true'
-    });
-
-    res.json({
-      ok: true,
-      results: Array.isArray(data?.results) ? data.results.length : 0
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
+  while (entries.length && searchResponseCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+    const [oldestKey] = entries.shift();
+    searchResponseCache.delete(oldestKey);
   }
-});
+}
+
+function getCachedSearch(query) {
+  pruneSearchCache();
+  const key = getSearchCacheKey(query);
+  const cached = searchResponseCache.get(key);
+
+  if (!cached) return null;
+  if (Date.now() - cached.createdAt > SEARCH_CACHE_TTL_MS) {
+    searchResponseCache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCachedSearch(query, data) {
+  pruneSearchCache();
+  const key = getSearchCacheKey(query);
+  searchResponseCache.set(key, {
+    createdAt: Date.now(),
+    data
+  });
+}
 
 async function handleKodikSearch(req, res) {
   try {
@@ -1831,31 +1126,19 @@ async function handleKodikSearch(req, res) {
 
     const normalizedQuery = normalizeSearchText(query);
     const expandedQueries = expandQueryVariants(query);
-    const primaryQueries = selectPrimaryKodikQueries(query, expandedQueries, normalizedQuery);
 
-    const shikiBoostMap = new Map();
-    try {
-      const shikiTerm = pickShikimoriSearchTerm(expandedQueries, normalizedQuery);
-      if (shikiTerm) {
-        const shikiResults = await shikimoriSearchAnimes(shikiTerm);
+    let primaryQueries = expandedQueries.slice(0, 3);
 
-        const scored = shikiResults
-          .map(anime => ({
-            id: Number(anime?.id) || null,
-            score: scoreShikimoriAnimeCandidate(anime, expandedQueries, normalizedQuery)
-          }))
-          .filter(item => item.id && item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 12);
+    // Точечный фикс Hunter x Hunter:
+    // если запрос "хантер/охотник/hunter", то приоритетно ищем "Охотник х Охотник" (как в Kodik)
+    if (isHxHQuery(normalizedQuery)) {
+      const forced = [
+        'охотник х охотник',
+        'охотник x охотник',
+        'hunter x hunter'
+      ].map(normalizeSearchText).filter(Boolean);
 
-        scored.forEach((item, index) => {
-          const base = Math.max(800, 5200 - index * 450);
-          const strength = Math.min(1, Math.max(0.25, item.score / 25000));
-          shikiBoostMap.set(item.id, Math.round(base * strength));
-        });
-      }
-    } catch (error) {
-      console.log('Shikimori boost skipped:', error.message);
+      primaryQueries = dedupeArray([...forced, ...primaryQueries]).slice(0, 5);
     }
 
     const requests = primaryQueries.map(q =>
@@ -1876,16 +1159,14 @@ async function handleKodikSearch(req, res) {
       }
     }
 
-    const mappedAll = rawResults
+    let mappedAll = rawResults
       .filter(isAllowedAnimeType)
-      .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
-      .map(item => {
-        const sid = Number(item.shikimoriId) || null;
-        if (sid && shikiBoostMap.has(sid)) {
-          item.score += shikiBoostMap.get(sid);
-        }
-        return item;
-      });
+      .map(item => makeSearchItem(item, expandedQueries, normalizedQuery));
+
+    // Удаляем пилотную серию из выдачи для "хантер/охотник/hunter"
+    if (isHxHQuery(normalizedQuery)) {
+      mappedAll = mappedAll.filter(item => !isPilotTitle(item.title));
+    }
 
     const mapped = mappedAll.filter(item => item.score >= 350);
 
@@ -1919,72 +1200,8 @@ async function handleKodikSearch(req, res) {
   }
 }
 
-async function handleKodikAnimeBySelection(req, res) {
-  try {
-    if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
-
-    const selected = req.body || {};
-    if (!selected?.title && !selected?.shikimoriId && !selected?.kodikId) {
-      return res.status(400).json({ error: 'Недостаточно данных для выбора аниме' });
-    }
-
-    let results = await fetchAnimeBySelection(selected);
-    results = strictMatchResults(results, selected);
-
-    if (!results.length) {
-      return res.status(404).json({ error: 'Не удалось точно определить выбранное аниме' });
-    }
-
-    const selectedVariants = expandQueryVariants(selected.title);
-    const first = results.find(item =>
-      getAllTitles(item).some(title =>
-        selectedVariants.some(variant => normalizeSearchText(title) === normalizeSearchText(variant))
-      )
-    ) || results[0];
-
-    const restriction = isAnimeBlockedForRequest(req, selected, first);
-
-    if (restriction.blocked) {
-      console.log(`[COUNTRY BLOCK] country=${restriction.country} ip=${restriction.ip} reason=${restriction.reason} anime="${normalizeTitle(first)}" shikimoriId=${getShikimoriId(first)}`);
-
-      return res.status(403).json({
-        error: 'Данное аниме запрещено на территории вашей страны',
-        code: 'ANIME_BLOCKED_BY_COUNTRY',
-        country: restriction.country,
-        blocked: true
-      });
-    }
-
-    const animeId = getStableAnimeId(first) || `kodik:${getKodikId(first) || 'unknown'}`;
-    const videos = mergeEpisodes(results);
-
-    console.log(`[Anime Selection] ${selected.title} | matched: ${normalizeTitle(first)} | results: ${results.length} | videos: ${videos.length}`);
-
-    res.json({
-      animeId,
-      animeUrl: animeId,
-      title: normalizeTitle(first),
-      description: normalizeDescription(first),
-      poster: normalizePoster(first),
-      year: normalizeYear(first),
-      type: normalizeType(first),
-      status: normalizeStatus(first),
-      shikimoriId: getShikimoriId(first),
-      episodes: videos.length || null,
-      videos
-    });
-  } catch (error) {
-    console.error('KODIK ANIME BY SELECTION ERROR:', error.message);
-    res.status(500).json({ error: 'Не удалось загрузить аниме', details: error.message });
-  }
-}
-
 app.get('/api/kodik/search', handleKodikSearch);
-app.post('/api/kodik/anime/by-selection', handleKodikAnimeBySelection);
-
-// Совместимость со старыми клиентами
 app.get('/api/yummy/search', handleKodikSearch);
-app.post('/api/yummy/anime/by-selection', handleKodikAnimeBySelection);
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/support', (req, res) => res.sendFile(path.join(__dirname, 'public', 'support.html')));
@@ -2188,7 +1405,6 @@ io.on('connection', (socket) => {
 
     const roomExists = !!rooms[safeRoomId];
 
-    // Создавать комнату разрешаем только по "нормальному" id из ссылки (r_ + 24 символа)
     if (!roomExists) {
       if (!isValidNewRoomId(safeRoomId)) {
         socket.emit('join-error', { message: 'Некорректная ссылка комнаты' });
