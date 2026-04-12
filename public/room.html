@@ -17,6 +17,7 @@
 
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/room.css" />
+  <link rel="stylesheet" href="/overlay-patch.css" />
 
   <meta name="description" content="Комната совместного просмотра аниме на Anivmeste." />
   <meta name="robots" content="noindex,nofollow" />
@@ -53,11 +54,6 @@
     #playerTopOverlay .overlay-dropdown-menu {
       right: 0;
       left: auto;
-    }
-
-    /* По твоему запросу — оставляем только сезон/серия как на скрине */
-    #overlayPlayerDropdown {
-      display: none !important;
     }
   </style>
 </head>
@@ -280,5 +276,6 @@
   <script src="/player.js"></script>
   <script src="/chat.js"></script>
   <script src="/room.js"></script>
+  <script src="/overlay-autohide.js"></script>
 </body>
 </html>

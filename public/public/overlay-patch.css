@@ -1,0 +1,33 @@
+/* Показываем количество серий в меню озвучек как: "2x2 (12)" */
+#overlayPlayerMenu .overlay-item-count {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+
+  padding: 0;
+  height: auto;
+  min-width: 0;
+  border-radius: 0;
+
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+#overlayPlayerMenu .overlay-item-count::before {
+  content: "(";
+  margin-right: 1px;
+  opacity: 0.95;
+}
+
+#overlayPlayerMenu .overlay-item-count::after {
+  content: ")";
+  margin-left: 1px;
+  opacity: 0.95;
+}
+
+/* Чуть меньше расстояние между названием озвучки и (N) */
+#overlayPlayerMenu .overlay-dropdown-item {
+  gap: 6px;
+}
