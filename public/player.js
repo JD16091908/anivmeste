@@ -19,6 +19,30 @@ window.PlayerModule = (() => {
       .replaceAll("'", '&#039;');
   }
 
+  function detectPlayerType(url) {
+    const u = String(url || '').toLowerCase();
+    if (!u) return 'unknown';
+    if (u.includes('kodik')) return 'kodik';
+    return 'unknown';
+  }
+
+  function extractOverlay(container) {
+    if (!container) return null;
+    const overlay = container.querySelector('#playerTopOverlay');
+    if (overlay && overlay.parentNode === container) {
+      overlay.remove();
+      return overlay;
+    }
+    return null;
+  }
+
+  function restoreOverlay(container, overlayEl) {
+    if (!container || !overlayEl) return;
+    if (!container.contains(overlayEl)) {
+      container.appendChild(overlayEl);
+    }
+  }
+
   function createIframe({ src, title = 'Без названия' } = {}) {
     const normalizedSrc = normalizeUrl(src);
     if (!normalizedSrc) return null;
@@ -31,10 +55,11 @@ window.PlayerModule = (() => {
     iframe.setAttribute('frameborder', '0');
     iframe.setAttribute('loading', 'eager');
     iframe.setAttribute('referrerpolicy', 'origin');
+
     iframe.style.display = 'block';
     iframe.style.width = '100%';
     iframe.style.height = '100%';
-    iframe.style.minHeight = '520px';
+    iframe.style.minHeight = '0';
     iframe.style.border = '0';
     iframe.style.borderRadius = '18px';
     iframe.style.background = '#000';
@@ -45,25 +70,40 @@ window.PlayerModule = (() => {
 
   function clearPlayer(container) {
     if (!container) return;
+
+    const overlay = extractOverlay(container);
+
     currentIframe = null;
     container.innerHTML = '';
+
+    restoreOverlay(container, overlay);
   }
 
   function mountIframe(container, { src, title } = {}) {
     if (!container) return null;
 
-    clearPlayer(container);
+    const overlay = extractOverlay(container);
+
+    currentIframe = null;
+    container.innerHTML = '';
 
     const iframe = createIframe({ src, title });
     if (!iframe) {
-      showPlaceholder(container, {
-        title: 'Ошибка загрузки',
-        description: 'Не удалось загрузить плеер'
-      });
+      const wrapper = document.createElement('div');
+      wrapper.className = 'placeholder';
+      wrapper.innerHTML = `
+        <div class="placeholder-content">
+          <h2>${escapeHtml('Ошибка загрузки')}</h2>
+          <p>${escapeHtml('Не удалось загрузить плеер')}</p>
+        </div>
+      `;
+      container.appendChild(wrapper);
+      restoreOverlay(container, overlay);
       return null;
     }
 
     container.appendChild(iframe);
+    restoreOverlay(container, overlay);
     return iframe;
   }
 
@@ -73,7 +113,10 @@ window.PlayerModule = (() => {
   } = {}) {
     if (!container) return;
 
-    clearPlayer(container);
+    const overlay = extractOverlay(container);
+
+    currentIframe = null;
+    container.innerHTML = '';
 
     const wrapper = document.createElement('div');
     wrapper.className = 'placeholder';
@@ -85,6 +128,7 @@ window.PlayerModule = (() => {
     `;
 
     container.appendChild(wrapper);
+    restoreOverlay(container, overlay);
   }
 
   function sendKodikCommand(method, params = {}) {
@@ -123,6 +167,10 @@ window.PlayerModule = (() => {
     const safeTime = Number(time);
     if (Number.isNaN(safeTime) || safeTime < 0) return false;
     return sendKodikCommand('setTime', { time: safeTime });
+  }
+
+  function seekTo(time) {
+    return seek(time);
   }
 
   function setHostState(state) {
@@ -203,6 +251,7 @@ window.PlayerModule = (() => {
 
   return {
     normalizeUrl,
+    detectPlayerType,
     createIframe,
     clearPlayer,
     mountIframe,
@@ -210,6 +259,7 @@ window.PlayerModule = (() => {
     play,
     pause,
     seek,
+    seekTo,
     setHostState,
     onVideoChanged,
     onEpisodeEnded,
