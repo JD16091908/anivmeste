@@ -444,6 +444,10 @@
   background: #000;
   display: block;
   z-index: 1;
+
+  /* FIX MOBILE/TABLET: в player.js стоит inline minHeight:520px, из-за этого iframe "вылезает"
+     выше контейнера 16:9 и обрезается overflow:hidden -> виден только кусок видео */
+  min-height: 0 !important;
 }
 
 .player-wrapper-overlay {
@@ -973,32 +977,74 @@
 }
 
 @media (max-width: 768px) {
+  /* MOBILE HEADER FIX: аккуратная шапка без "мешанины" */
   .top-bar {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "left badge"
+      "center center"
+      "cinema support";
+    gap: 10px;
     height: auto;
     padding: 10px;
-    gap: 10px;
+    align-items: center;
+  }
+
+  .top-bar-left {
+    grid-area: left;
+    min-width: 0;
+  }
+
+  /* делаем детей top-actions участниками grid шапки */
+  .top-actions {
+    display: contents;
+  }
+
+  #hostBadge {
+    grid-area: badge;
+    justify-self: end;
+    align-self: center;
   }
 
   .top-center {
-    order: 3;
+    grid-area: center;
+    order: 0;
     width: 100%;
+    min-width: 0;
     justify-content: space-between;
+    gap: 10px;
   }
 
   #roomTitle {
     font-size: 17px;
+    max-width: 52vw;
   }
 
-  .top-actions {
+  #copyLinkBtn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  #cinemaModeBtn {
+    grid-area: cinema;
     width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
+  }
+
+  #supportRoomBtn {
+    grid-area: support;
+    width: 100%;
   }
 
   .room-support-btn {
-    flex: 1 1 100%;
-    height: 38px;
+    flex: initial;
+    height: 40px;
+  }
+
+  .top-actions {
+    width: auto;
+    justify-content: initial;
+    flex-wrap: initial;
   }
 
   .host-badge {
