@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/room.css" />
   <link rel="stylesheet" href="/overlay-patch.css" />
+  <link rel="stylesheet" href="/room-mobile-fix.css" />
 
   <meta name="description" content="Комната совместного просмотра аниме на Anivmeste." />
   <meta name="robots" content="noindex,nofollow" />
@@ -29,7 +30,7 @@
   <meta property="og:description" content="Подключайся к совместному просмотру аниме на Anivmeste." />
   <meta property="og:image" content="https://anivmeste.ru/og-image.svg" />
 
-  <!-- FIX: вывод выбора сезона/серии в правом верхнем углу плеера -->
+  <!-- Оверлей управления поверх плеера -->
   <style>
     #playerWrapper { position: relative; }
 
@@ -41,16 +42,15 @@
       bottom: auto;
       width: auto;
       z-index: 60;
-      pointer-events: none; /* чтобы не блокировать клики по плееру */
+      pointer-events: none;
     }
 
     #playerTopOverlay .player-overlay-controls {
-      pointer-events: auto; /* кликабельны только сами кнопки */
+      pointer-events: auto;
       justify-content: flex-end;
       gap: 10px;
     }
 
-    /* Меню дропдаунов открываются вправо */
     #playerTopOverlay .overlay-dropdown-menu {
       right: 0;
       left: auto;
