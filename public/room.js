@@ -530,6 +530,14 @@ function clearSearchResultsUi() {
   lastRenderedSearchSignature = '';
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Хелперы для работы с видео / озвучками / сезонами / сериями
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Возвращает список уникальных озвучек с количеством серий.
+ * count = количество уникальных эпизодов у данной озвучки (по всем сезонам).
+ */
 function getUniquePlayers(videos) {
   const map = new Map();
   for (const video of videos || []) {
@@ -538,15 +546,20 @@ function getUniquePlayers(videos) {
 
     const name = getPlayerName(video);
     if (!map.has(name)) {
-      map.set(name, { name, count: 1 });
-    } else {
-      map.get(name).count += 1;
+      map.set(name, { name, episodeNumbers: new Set() });
+    }
+    const epNum = getEpisodeNumber(video);
+    if (epNum > 0) {
+      map.get(name).episodeNumbers.add(epNum);
     }
   }
-  return [...map.values()].sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count;
-    return a.name.localeCompare(b.name, 'ru');
-  });
+
+  return [...map.values()]
+    .map(p => ({ name: p.name, count: p.episodeNumbers.size || 1 }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.name.localeCompare(b.name, 'ru');
+    });
 }
 
 function getVideosBySelectedPlayer(videos) {
@@ -809,12 +822,10 @@ function loadIframe(embedUrl) {
   lastAppliedAt = 0;
   lastForcedSyncAt = 0;
 
-  // FIX: сохраняем оверлей перед тем, как PlayerModule очистит wrapper
   const preservedOverlay = detachPlayerOverlayFromWrapper(playerWrapper);
 
   window.PlayerModule.mountIframe(playerWrapper, { src: embedUrl, title: currentState.title });
 
-  // FIX: возвращаем оверлей обратно
   attachPlayerOverlayToWrapper(playerWrapper, preservedOverlay);
 
   bridge.playerType = typeof window.PlayerModule.detectPlayerType === 'function'
@@ -845,7 +856,6 @@ function loadIframe(embedUrl) {
     setTimeout(() => applyPlaybackStateWhenReady(pb), 500);
   }
 
-  // Страховка: если оверлей ещё не успел появиться — перерисуем через тик
   setTimeout(() => {
     if (selectedAnime) {
       try {
@@ -1053,6 +1063,17 @@ function toggleOverlayDropdown(dropdownElement, isOpenState) {
   return nextState;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// renderOverlayControls — главная функция отрисовки оверлея поверх плеера
+//
+// Макет: [Озвучка (N сер.) ▾]  [Серия N ▾]
+//
+// Сезон скрыт в кнопке озвучки:
+//  - Если у аниме один сезон — сезон не показывается отдельно, только кол-во серий.
+//  - Если сезонов больше одного — в выпадушке озвучки под названием показывается сезон.
+//  - overlaySeasonDropdown используется для переключения сезона внутри выбранной озвучки,
+//    но кнопка сезона скрыта если сезон один.
+// ─────────────────────────────────────────────────────────────────────────────
 function renderOverlayControls() {
   if (!selectedAnime) {
     hideOverlay();
@@ -1062,51 +1083,100 @@ function renderOverlayControls() {
   const videos = selectedAnime.videos || [];
   const players = getUniquePlayers(videos);
 
+  // Выбираем дефолтную озвучку если ещё не выбрана
   if (!selectedPlayer && players.length) {
     selectedPlayer = players[0].name;
   }
 
   const byPlayer = getVideosBySelectedPlayer(videos);
   const seasons = getUniqueSeasons(byPlayer);
+  const hasMultipleSeasons = seasons.length > 1;
 
+  // Выбираем дефолтный сезон если ещё не выбран или не совпадает
   if (!selectedSeason) selectedSeason = seasons[0]?.season || 1;
-  if (seasons.length && !seasons.find(s => s.season === selectedSeason)) selectedSeason = seasons[0]?.season || 1;
+  if (seasons.length && !seasons.find(s => s.season === selectedSeason)) {
+    selectedSeason = seasons[0]?.season || 1;
+  }
 
   const bySeason = getVideosBySelectedSeason(byPlayer);
   const episodes = getUniqueEpisodes(bySeason);
 
-  if (overlayPlayerBtnText) overlayPlayerBtnText.textContent = selectedPlayer || 'Озвучка';
-  if (overlaySeasonBtnText) overlaySeasonBtnText.textContent = `${selectedSeason || 1} сезон`;
-  if (overlayEpisodeBtnText) overlayEpisodeBtnText.textContent = `${currentState.episodeNumber || episodes[0]?.episodeNumber || 1} серия`;
+  // Считаем серии для текущей озвучки (по всем сезонам)
+  const currentPlayerData = players.find(p => p.name === selectedPlayer);
+  const episodeCount = currentPlayerData ? currentPlayerData.count : episodes.length;
 
-  overlayPlayerMenu && (overlayPlayerMenu.innerHTML = players.map(player => `
-    <button type="button" class="overlay-dropdown-item ${player.name === selectedPlayer ? 'active' : ''}" data-player="${escapeHtml(player.name)}">
-      <span>${escapeHtml(player.name)}</span>
-      <span class="overlay-item-count">${player.count}</span>
-    </button>
-  `).join(''));
+  // ── Кнопка озвучки: показываем название + кол-во серий ──
+  if (overlayPlayerBtnText) {
+    overlayPlayerBtnText.textContent = selectedPlayer
+      ? `${selectedPlayer} (${episodeCount} сер.)`
+      : 'Озвучка';
+  }
 
-  overlaySeasonMenu && (overlaySeasonMenu.innerHTML = seasons.map(season => `
-    <button type="button" class="overlay-dropdown-item ${season.season === selectedSeason ? 'active' : ''}" data-season="${season.season}">
-      <span>${season.season} сезон</span>
-      <span class="overlay-item-count">${season.count}</span>
-    </button>
-  `).join(''));
+  // ── Кнопка сезона: показываем только если сезонов > 1 ──
+  if (overlaySeasonDropdown) {
+    overlaySeasonDropdown.style.display = hasMultipleSeasons ? '' : 'none';
+  }
+  if (overlaySeasonBtnText) {
+    overlaySeasonBtnText.textContent = hasMultipleSeasons
+      ? `Сезон ${selectedSeason}`
+      : `Сезон ${selectedSeason}`;
+  }
 
-  overlayEpisodeMenu && (overlayEpisodeMenu.innerHTML = episodes.map(episode => `
-    <button type="button" class="overlay-dropdown-item overlay-dropdown-item-episode ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}" data-episode="${episode.episodeNumber}">
-      ${episode.episodeNumber}
-    </button>
-  `).join(''));
+  // ── Кнопка серии ──
+  const currentEpNumber = currentState.episodeNumber || episodes[0]?.episodeNumber || 1;
+  if (overlayEpisodeBtnText) {
+    overlayEpisodeBtnText.textContent = `${currentEpNumber} серия`;
+  }
 
-  // ВАЖНО: больше НЕ прячем выбор сезона при одном сезоне — чтобы всегда было как на скрине
+  // ── Меню озвучек: название + кол-во серий справа ──
+  if (overlayPlayerMenu) {
+    overlayPlayerMenu.innerHTML = players.map(player => `
+      <button
+        type="button"
+        class="overlay-dropdown-item ${player.name === selectedPlayer ? 'active' : ''}"
+        data-player="${escapeHtml(player.name)}"
+      >
+        <span class="overlay-item-player-name">${escapeHtml(player.name)}</span>
+        <span class="overlay-item-count">${player.count}</span>
+      </button>
+    `).join('');
+  }
 
+  // ── Меню сезонов ──
+  if (overlaySeasonMenu) {
+    overlaySeasonMenu.innerHTML = seasons.map(season => `
+      <button
+        type="button"
+        class="overlay-dropdown-item ${season.season === selectedSeason ? 'active' : ''}"
+        data-season="${season.season}"
+      >
+        <span>Сезон ${season.season}</span>
+        <span class="overlay-item-count">${season.count}</span>
+      </button>
+    `).join('');
+  }
+
+  // ── Меню серий: числа в сетке ──
+  if (overlayEpisodeMenu) {
+    overlayEpisodeMenu.innerHTML = episodes.map(episode => `
+      <button
+        type="button"
+        class="overlay-dropdown-item overlay-dropdown-item-episode ${episode.episodeNumber === currentState.episodeNumber ? 'active' : ''}"
+        data-episode="${episode.episodeNumber}"
+      >
+        ${episode.episodeNumber}
+      </button>
+    `).join('');
+  }
+
+  // ── Обработчики меню озвучек ──
   overlayPlayerMenu?.querySelectorAll('[data-player]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
       selectedPlayer = btn.dataset.player;
       selectedSeason = null;
       isOverlayPlayerOpen = false;
+      overlayPlayerDropdown?.classList.remove('open');
 
       const refreshedByPlayer = getVideosBySelectedPlayer(selectedAnime?.videos || []);
       const seasonsAfterPlayerChange = getUniqueSeasons(refreshedByPlayer);
@@ -1120,11 +1190,13 @@ function renderOverlayControls() {
     });
   });
 
+  // ── Обработчики меню сезонов ──
   overlaySeasonMenu?.querySelectorAll('[data-season]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
       selectedSeason = Number(btn.dataset.season) || 1;
       isOverlaySeasonOpen = false;
+      overlaySeasonDropdown?.classList.remove('open');
       renderOverlayControls();
 
       const refreshedByPlayer = getVideosBySelectedPlayer(selectedAnime?.videos || []);
@@ -1134,6 +1206,7 @@ function renderOverlayControls() {
     });
   });
 
+  // ── Обработчики меню серий ──
   overlayEpisodeMenu?.querySelectorAll('[data-episode]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
@@ -1143,6 +1216,7 @@ function renderOverlayControls() {
       const episode = getUniqueEpisodes(refreshedBySeason).find(v => v.episodeNumber === episodeNumber);
       if (!episode) return;
       isOverlayEpisodeOpen = false;
+      overlayEpisodeDropdown?.classList.remove('open');
       renderOverlayControls();
       launchEpisode(episode, selectedAnime);
     });
@@ -1434,24 +1508,24 @@ overlayPlayerBtn?.addEventListener('click', (event) => {
   event.stopPropagation();
   if (!canControl()) return;
   isOverlayPlayerOpen = toggleOverlayDropdown(overlayPlayerDropdown, isOverlayPlayerOpen);
-  if (!isOverlayPlayerOpen) hideOverlayMenus();
-  renderOverlayControls();
+  isOverlaySeasonOpen = false;
+  isOverlayEpisodeOpen = false;
 });
 
 overlaySeasonBtn?.addEventListener('click', (event) => {
   event.stopPropagation();
   if (!canControl()) return;
   isOverlaySeasonOpen = toggleOverlayDropdown(overlaySeasonDropdown, isOverlaySeasonOpen);
-  if (!isOverlaySeasonOpen) hideOverlayMenus();
-  renderOverlayControls();
+  isOverlayPlayerOpen = false;
+  isOverlayEpisodeOpen = false;
 });
 
 overlayEpisodeBtn?.addEventListener('click', (event) => {
   event.stopPropagation();
   if (!canControl()) return;
   isOverlayEpisodeOpen = toggleOverlayDropdown(overlayEpisodeDropdown, isOverlayEpisodeOpen);
-  if (!isOverlayEpisodeOpen) hideOverlayMenus();
-  renderOverlayControls();
+  isOverlayPlayerOpen = false;
+  isOverlaySeasonOpen = false;
 });
 
 window.addEventListener('message', (event) => {

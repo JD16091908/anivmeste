@@ -974,3 +974,15 @@ svg {
     font-size: 18px;
   }
 }
+
+#overlayPlayerBtn {
+  max-width: 220px;
+}
+
+.overlay-item-player-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
