@@ -2,280 +2,265 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Комната просмотра — Anivmeste</title>
-
-  <meta name="color-scheme" content="dark" />
-  <meta name="format-detection" content="telephone=no" />
-
-  <link rel="icon" href="/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-  <link rel="apple-touch-icon" href="/favicon.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="manifest" href="/site.webmanifest" />
-
-  <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/room.css" />
-  <link rel="stylesheet" href="/overlay-patch.css" />
-  <link rel="stylesheet" href="/room-mobile-fix.css" />
-
-  <meta name="description" content="Комната совместного просмотра аниме на Anivmeste." />
-  <meta name="robots" content="noindex,nofollow" />
-  <meta name="theme-color" content="#11192E" />
-
-  <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Anivmeste" />
-  <meta property="og:title" content="Комната просмотра — Anivmeste" />
-  <meta property="og:description" content="Подключайся к совместному просмотру аниме на Anivmeste." />
-  <meta property="og:image" content="https://anivmeste.ru/og-image.svg" />
-
-  <!-- Оверлей управления поверх плеера -->
-  <style>
-    #playerWrapper { position: relative; }
-
-    #playerTopOverlay {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      left: auto;
-      bottom: auto;
-      width: auto;
-      z-index: 60;
-      pointer-events: none;
-    }
-
-    #playerTopOverlay .player-overlay-controls {
-      pointer-events: auto;
-      justify-content: flex-end;
-      gap: 10px;
-    }
-
-    #playerTopOverlay .overlay-dropdown-menu {
-      right: 0;
-      left: auto;
-    }
-  </style>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="stylesheet" href="/css/room.css" />
+  <script>
+    window.AnivmesteConfig = {
+      support: {
+        description: 'Поддержите развитие AniVmeste — это помогает нам делать сервис лучше!',
+        thanksText: 'Спасибо, что вы с нами! ❤️',
+        boostyUrl: 'https://boosty.to/anivmeste',
+        donationAlertsUrl: 'https://www.donationalerts.com/r/anivmeste'
+      }
+    };
+  </script>
 </head>
 <body>
-  <div class="room-page" id="roomPage">
-    <header class="top-bar">
-      <div class="top-bar-left">
-        <a href="/" class="logo" aria-label="На главную">
-          <img src="/logo.svg" alt="Anivmeste" class="room-logo-image" />
-        </a>
-      </div>
 
-      <div class="top-center">
-        <span id="roomTitle">Комната</span>
-        <button id="copyLinkBtn" class="small-btn" type="button">Копировать ссылку</button>
-      </div>
+<div class="room-page" id="roomPage">
 
-      <div class="top-actions">
-        <button id="supportRoomBtn" class="small-btn room-support-btn" type="button">Поддержать проект</button>
-        <span id="hostBadge" class="host-badge">Загрузка...</span>
-        <button id="cinemaModeBtn" class="small-btn" type="button">Режим кинотеатра</button>
-      </div>
-    </header>
-
-    <div class="room-layout room-layout-centered" id="roomLayout">
-      <main class="player-area player-area-centered">
-        <section class="center-search-panel" aria-labelledby="roomSearchTitle">
-          <div class="center-search-head">
-            <h2 id="roomSearchTitle" class="center-search-title">Поиск аниме</h2>
-            <p id="hostSearchHint" class="muted-text center-search-hint">
-              Искать и выбирать тайтл может только хост комнаты
-            </p>
-          </div>
-
-          <div class="center-search-box">
-            <input
-              type="text"
-              id="searchInput"
-              class="center-search-input"
-              placeholder="Введите название аниме..."
-              autocomplete="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <div class="center-search-icon" aria-hidden="true">⌕</div>
-          </div>
-
-          <div id="searchStatus" class="small-note center-search-status" aria-live="polite"></div>
-          <div id="animeList" class="search-dropdown" aria-live="polite"></div>
-        </section>
-
-        <section class="selected-anime-panel" aria-labelledby="selectedAnimeTitleLabel">
-          <div class="selected-anime-panel-head">
-            <h2 id="selectedAnimeTitleLabel">Выбранный тайтл</h2>
-          </div>
-
-          <div id="selectedAnimeInfo" class="selected-anime-info">
-            Пока ничего не выбрано
-          </div>
-        </section>
-
-        <section class="player-shell player-shell-raised" aria-label="Плеер">
-          <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
-            <div id="playerTopOverlay" class="player-top-overlay hidden">
-              <div class="player-overlay-controls">
-                <div class="overlay-dropdown" id="overlayPlayerDropdown">
-                  <button type="button" id="overlayPlayerBtn" class="overlay-control-btn">
-                    <span id="overlayPlayerBtnText">Озвучка</span>
-                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
-                  </button>
-                  <div id="overlayPlayerMenu" class="overlay-dropdown-menu"></div>
-                </div>
-
-                <div class="overlay-dropdown" id="overlaySeasonDropdown">
-                  <button type="button" id="overlaySeasonBtn" class="overlay-control-btn">
-                    <span id="overlaySeasonBtnText">1 сезон</span>
-                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
-                  </button>
-                  <div id="overlaySeasonMenu" class="overlay-dropdown-menu"></div>
-                </div>
-
-                <div class="overlay-dropdown" id="overlayEpisodeDropdown">
-                  <button type="button" id="overlayEpisodeBtn" class="overlay-control-btn">
-                    <span id="overlayEpisodeBtnText">1 серия</span>
-                    <span class="overlay-control-arrow" aria-hidden="true">⌄</span>
-                  </button>
-                  <div id="overlayEpisodeMenu" class="overlay-dropdown-menu overlay-dropdown-menu-episodes"></div>
-                </div>
-              </div>
-            </div>
-
-            <div id="placeholder" class="placeholder">
-              <div class="placeholder-content">
-                <h2>Выберите аниме</h2>
-                <p>После выбора тайтла можно менять озвучку, сезоны и серии прямо поверх плеера</p>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <aside class="right-sidebar" id="rightSidebar">
-        <section class="block participants-block" aria-labelledby="usersBlockTitle">
-          <div class="block-head">
-            <h2 id="usersBlockTitle">Участники</h2>
-            <div class="users-caption">Справа у каждого показывается текущее время просмотра</div>
-          </div>
-
-          <div class="nickname-panel">
-            <label class="nickname-label" for="nicknameInput">Ваш ник</label>
-            <div class="nickname-row">
-              <input
-                type="text"
-                id="nicknameInput"
-                class="nickname-input"
-                maxlength="30"
-                placeholder="Введите ник"
-                autocomplete="nickname"
-                spellcheck="false"
-              />
-              <button id="saveNicknameBtn" class="btn btn-primary nickname-save-btn" type="button">Сохранить</button>
-            </div>
-          </div>
-
-          <div id="usersList" class="users-list"></div>
-        </section>
-
-        <section class="block chat-block" aria-labelledby="chatBlockTitle">
-          <div class="block-head">
-            <h2 id="chatBlockTitle">Чат</h2>
-          </div>
-
-          <div id="chatMessages" class="chat-messages"></div>
-
-          <div class="chat-input-box">
-            <input
-              type="text"
-              id="chatInput"
-              placeholder="Введите сообщение..."
-              maxlength="300"
-              spellcheck="false"
-            />
-            <button id="sendBtn" class="btn btn-primary" type="button">➤</button>
-          </div>
-        </section>
-      </aside>
+  <!-- ═══════════════════════════ TOP BAR ═══════════════════════════ -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <a href="/" class="logo" style="text-decoration:none;color:inherit;">AniVmeste</a>
     </div>
-  </div>
 
-  <div id="roomSupportModal" class="about-modal hidden" aria-hidden="true">
-    <div class="about-modal-backdrop" id="roomSupportModalBackdrop"></div>
+    <div class="top-center">
+      <span id="roomTitle">Комната просмотра</span>
+      <button id="copyLinkBtn" class="small-btn" type="button" title="Скопировать ссылку-приглашение">🔗 Пригласить</button>
+    </div>
 
-    <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="roomSupportModalTitle">
-      <div class="about-modal-header">
-        <div class="about-modal-brand">
-          <img src="/logo.svg" alt="Anivmeste" class="about-modal-logo" />
+    <div class="top-actions">
+      <span id="hostBadge" class="host-badge">👀 Зритель</span>
+      <button id="cinemaModeBtn" class="small-btn" type="button" title="Режим кинотеатра">🎬 Кино</button>
+      <button id="supportRoomBtn" class="small-btn room-support-btn" type="button" title="Поддержать проект">❤️ Поддержать</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════ MAIN LAYOUT ═══════════════════════════ -->
+  <div class="room-layout-centered">
+
+    <!-- ─── LEFT: PLAYER + SEARCH + ANIME INFO ─── -->
+    <div class="player-area-centered">
+
+      <!-- PLAYER SHELL -->
+      <div class="player-shell player-shell-raised">
+        <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
+
+          <!-- Overlay controls (player + episode only, season removed) -->
+          <div class="player-top-overlay hidden" id="playerTopOverlay">
+            <div class="player-overlay-controls">
+
+              <!-- Озвучка -->
+              <div class="overlay-dropdown" id="overlayPlayerDropdown">
+                <button class="overlay-control-btn" id="overlayPlayerBtn" type="button" title="Выбрать озвучку">
+                  <span id="overlayPlayerBtnText">Озвучка</span>
+                  <span class="overlay-control-arrow">▾</span>
+                </button>
+                <div class="overlay-dropdown-menu" id="overlayPlayerMenu"></div>
+              </div>
+
+              <!-- Серия -->
+              <div class="overlay-dropdown" id="overlayEpisodeDropdown">
+                <button class="overlay-control-btn" id="overlayEpisodeBtn" type="button" title="Выбрать серию">
+                  <span id="overlayEpisodeBtnText">Серия</span>
+                  <span class="overlay-control-arrow">▾</span>
+                </button>
+                <div class="overlay-dropdown-menu-episodes" id="overlayEpisodeMenu"></div>
+              </div>
+
+            </div>
+          </div>
+          <!-- /overlay -->
+
+        </div>
+      </div>
+      <!-- /player-shell -->
+
+      <!-- SEARCH PANEL -->
+      <div class="center-search-panel anime-search-section">
+        <div class="center-search-head">
+          <h2>🔍 Поиск аниме</h2>
+          <span id="hostSearchHint" class="muted-text center-search-hint">Вы можете искать тайтлы и запускать плеер для всей комнаты</span>
+        </div>
+        <div class="center-search-box">
+          <input
+            id="searchInput"
+            class="center-search-input"
+            type="search"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Введите название аниме..."
+          />
+          <span class="center-search-icon">🔍</span>
+          <div class="search-dropdown" id="animeList"></div>
+        </div>
+        <div class="center-search-status" id="searchStatus"></div>
+      </div>
+      <!-- /search panel -->
+
+      <!-- SELECTED ANIME INFO -->
+      <div class="selected-anime-panel" id="selectedAnimeInfo">
+        <div class="empty-selected-anime">
+          <p>Пока ничего не выбрано</p>
+          <p class="small-note">Начните поиск аниме в поле выше.</p>
+        </div>
+      </div>
+      <!-- /anime info -->
+
+    </div>
+    <!-- /player-area-centered -->
+
+    <!-- ─── RIGHT: SIDEBAR ─── -->
+    <aside class="right-sidebar">
+
+      <!-- Ник -->
+      <div class="block">
+        <div class="nickname-panel">
+          <span class="nickname-label">Ваш ник</span>
+          <div class="nickname-row">
+            <input
+              id="nicknameInput"
+              class="nickname-input"
+              type="text"
+              maxlength="30"
+              placeholder="Ваш ник..."
+              autocomplete="off"
+            />
+            <button id="saveNicknameBtn" class="small-btn nickname-save-btn" type="button">Сохранить</button>
+          </div>
         </div>
       </div>
 
-      <div class="about-modal-content">
-        <section class="about-modal-section">
-          <h2 id="roomSupportModalTitle">Поддержка проекта</h2>
-          <div class="about-modal-card" id="roomSupportDescription"></div>
-        </section>
-
-        <section class="about-modal-section">
-          <h2>Способы поддержки</h2>
-          <div class="support-grid">
-            <a
-              class="support-card support-card-boosty"
-              id="roomSupportBoostyLink"
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            >
-              <div class="support-card-head">
-                <div class="support-card-icon">B</div>
-                <div class="support-card-title-wrap">
-                  <h3>Boosty</h3>
-                  <p>Подписка или разовая поддержка</p>
-                </div>
-              </div>
-              <div class="support-card-action">Открыть Boosty</div>
-            </a>
-
-            <a
-              class="support-card support-card-da"
-              id="roomSupportDonationAlertsLink"
-              href="#"
-              target="_blank"
-              rel="noopener noreferrer nofollow"
-            >
-              <div class="support-card-head">
-                <div class="support-card-icon">₽</div>
-                <div class="support-card-title-wrap">
-                  <h3>DonationAlerts</h3>
-                  <p>Быстрый разовый донат</p>
-                </div>
-              </div>
-              <div class="support-card-action">Открыть DonationAlerts</div>
-            </a>
-          </div>
-        </section>
-
-        <section class="about-modal-section">
-          <h2>Спасибо</h2>
-          <div class="about-modal-card" id="roomSupportThanks"></div>
-        </section>
+      <!-- Зрители -->
+      <div class="block">
+        <h2>👥 Зрители</h2>
+        <p class="users-caption muted-text">Участники комнаты и их прогресс</p>
+        <div id="usersList" class="users-list">
+          <div class="empty-state">Пока никого нет</div>
+        </div>
       </div>
 
-      <div class="about-modal-actions">
-        <a href="/support" class="about-modal-link-btn">Подробнее</a>
-        <button id="closeRoomSupportModalBtn" class="about-modal-close-btn" type="button">OK</button>
+      <!-- Чат -->
+      <div class="chat-block block">
+        <h2>💬 Чат</h2>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-box">
+          <input
+            id="chatInput"
+            type="text"
+            maxlength="300"
+            placeholder="Сообщение..."
+            autocomplete="off"
+          />
+          <button id="sendBtn" class="small-btn btn" type="button">Отправить</button>
+        </div>
       </div>
+
+    </aside>
+    <!-- /right-sidebar -->
+
+  </div>
+  <!-- /room-layout-centered -->
+
+</div>
+<!-- /room-page -->
+
+<!-- ═══════════════════════════ SUPPORT MODAL ═══════════════════════════ -->
+<div
+  id="roomSupportModal"
+  class="hidden"
+  aria-modal="true"
+  aria-hidden="true"
+  role="dialog"
+  style="
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  "
+>
+  <div
+    id="roomSupportModalBackdrop"
+    style="
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(4px);
+    "
+  ></div>
+
+  <div style="
+    position: relative; z-index: 1;
+    background: linear-gradient(180deg, #1e2842 0%, #18213a 100%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 32px 28px 28px;
+    max-width: 420px; width: 100%;
+    box-shadow: 0 24px 56px rgba(0,0,0,0.48);
+    text-align: center;
+  ">
+    <button
+      id="closeRoomSupportModalBtn"
+      type="button"
+      style="
+        position: absolute; top: 14px; right: 16px;
+        background: none; border: none;
+        color: #aebad6; font-size: 22px; cursor: pointer;
+        line-height: 1; padding: 4px;
+        transition: color .15s;
+      "
+      title="Закрыть"
+    >✕</button>
+
+    <div style="font-size: 40px; margin-bottom: 12px;">❤️</div>
+    <h2 style="margin: 0 0 10px; font-size: 22px; font-weight: 800; color: #fff;">Поддержать проект</h2>
+    <p id="roomSupportDescription" style="margin: 0 0 20px; color: #aebad6; font-size: 15px; line-height: 1.6;"></p>
+    <p id="roomSupportThanks" style="margin: 0 0 22px; color: #9db4ff; font-size: 14px; font-weight: 600;"></p>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <a
+        id="roomSupportBoostyLink"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="
+          display: block; padding: 14px 20px;
+          border-radius: 12px;
+          background: linear-gradient(90deg, #f59e0b, #ef8c02);
+          color: #fff; font-size: 16px; font-weight: 800;
+          text-decoration: none;
+          transition: filter .18s, transform .18s;
+        "
+        onmouseover="this.style.filter='brightness(1.08)';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.filter='';this.style.transform=''"
+      >☕ Boosty</a>
+
+      <a
+        id="roomSupportDonationAlertsLink"
+        href="#"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="
+          display: block; padding: 14px 20px;
+          border-radius: 12px;
+          background: linear-gradient(90deg, #ff4081, #e91e63);
+          color: #fff; font-size: 16px; font-weight: 800;
+          text-decoration: none;
+          transition: filter .18s, transform .18s;
+        "
+        onmouseover="this.style.filter='brightness(1.08)';this.style.transform='translateY(-1px)'"
+        onmouseout="this.style.filter='';this.style.transform=''"
+      >🎁 DonationAlerts</a>
     </div>
   </div>
+</div>
 
-  <script src="/config.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="/player.js"></script>
-  <script src="/chat.js"></script>
-  <script src="/room.js"></script>
-  <script src="/overlay-autohide.js"></script>
+<!-- ═══════════════════════════ SCRIPTS ═══════════════════════════ -->
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/player.js"></script>
+<script src="/js/room.js"></script>
+
 </body>
 </html>
