@@ -1531,46 +1531,23 @@ app.get('/api/health/kodik', async (req, res) => {
 
 async function handleKodikSearch(req, res) {
   try {
-    if (!KODIK_TOKEN) return res.status(500).json({ error: 'Нет токена' });
+    if (!KODIK_TOKEN) {
+      return res.status(500).json({ error: 'Нет токена' });
+    }
 
-    const query = (req.query.q || req.query.query || req.query.title || '').trim();
+    const query = (req.query.q || '').trim();
     if (!query || query.length < 2) {
       return res.status(400).json({ error: 'Введите минимум 2 символа для поиска' });
     }
 
-    const cached = getCachedSearch(query);
-    if (cached) {
-      return res.json(cached);
-    }
-
     const normalizedQuery = normalizeSearchText(query);
     const expandedQueries = expandQueryVariants(query);
-    const primaryQueries = selectPrimaryKodikQueries(query, expandedQueries, normalizedQuery);
 
-    const shikiBoostMap = new Map();
-    try {
-      const shikiTerm = pickShikimoriSearchTerm(expandedQueries, normalizedQuery);
-      if (shikiTerm) {
-        const shikiResults = await shikimoriSearchAnimes(shikiTerm);
-
-        const scored = shikiResults
-          .map(anime => ({
-            id: Number(anime?.id) || null,
-            score: scoreShikimoriAnimeCandidate(anime, expandedQueries, normalizedQuery)
-          }))
-          .filter(item => item.id && item.score > 0)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 12);
-
-        scored.forEach((item, index) => {
-          const base = Math.max(800, 5200 - index * 450);
-          const strength = Math.min(1, Math.max(0.25, item.score / 25000));
-          shikiBoostMap.set(item.id, Math.round(base * strength));
-        });
-      }
-    } catch (error) {
-      console.log('Shikimori boost skipped:', error.message);
-    }
+    const primaryQueries = selectPrimaryKodikQueries(
+      query,
+      expandedQueries,
+      normalizedQuery
+    );
 
     const requests = primaryQueries.map(q =>
       kodikGet('/search', {
@@ -1583,53 +1560,51 @@ async function handleKodikSearch(req, res) {
 
     const responses = await Promise.all(requests);
 
-    const rawResults = [];
+    let rawResults = [];
     for (const response of responses) {
       if (Array.isArray(response?.results)) {
         rawResults.push(...response.results);
       }
     }
 
-    const mappedAll = rawResults
-      .filter(isAllowedAnimeType)
-      .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
-      .map(item => {
-        const sid = Number(item.shikimoriId) || null;
-        if (sid && shikiBoostMap.has(sid)) {
-          item.score += shikiBoostMap.get(sid);
-        }
-        return item;
-      });
+    // ✅ ЖЁСТКАЯ ОЧИСТКА ТИПОВ
+    rawResults = rawResults.filter(item => {
+      const type = String(normalizeType(item) || '').toLowerCase();
 
-    const mapped = mappedAll.filter(item => item.score >= 350);
+      if (!type.includes('anime')) return false;
+      if (type.includes('ova')) return false;
+      if (type.includes('ona')) return false;
+      if (type.includes('special')) return false;
 
-    const maxScore = mapped.reduce((acc, it) => Math.max(acc, Number(it.score) || 0), 0);
-    const dynamicThresholdHard = Math.max(1600, Math.floor(maxScore * 0.33));
-    const dynamicThresholdSoft = Math.max(950, Math.floor(maxScore * 0.22));
+      return true;
+    });
 
-    let filtered = mapped.filter(item => item.score >= dynamicThresholdHard);
+    const mapped = rawResults.map(item =>
+      makeSearchItem(item, expandedQueries, normalizedQuery)
+    );
 
-    if (filtered.length < 6) {
-      filtered = mapped.filter(item => item.score >= dynamicThresholdSoft);
-    }
-    if (!filtered.length) {
-      filtered = mapped;
-    }
+    // ✅ УБИРАЕМ СЛАБЫЕ СОВПАДЕНИЯ
+    const strong = mapped.filter(item => item.score >= 4000);
 
-    const deduped = dedupeSearchResults(filtered, expandedQueries)
-      .sort((a, b) => {
-        const aRank = (Number(a.score) || 0) + (a.serialPriority ? 800 : 0);
-        const bRank = (Number(b.score) || 0) + (b.serialPriority ? 800 : 0);
-        return bRank - aRank;
-      })
-      .slice(0, 18)
-      .map(({ titleKey, altTitles, ...item }) => item);
+    // ✅ СОРТИРОВКА
+    strong.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.serialPriority !== a.serialPriority) {
+        return b.serialPriority - a.serialPriority;
+      }
+      const yearA = Number(a.year) || 0;
+      const yearB = Number(b.year) || 0;
+      return yearB - yearA;
+    });
 
-    setCachedSearch(query, deduped);
-    res.json(deduped);
+    // ✅ МАКСИМУМ 5
+    const finalResults = strong.slice(0, 5);
+
+    res.json(finalResults);
+
   } catch (error) {
     console.error('KODIK SEARCH ERROR:', error.message);
-    res.status(500).json({ error: 'Не удалось выполнить поиск', details: error.message });
+    res.status(500).json({ error: 'Ошибка поиска', details: error.message });
   }
 }
 
