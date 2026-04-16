@@ -108,10 +108,14 @@ function isAllowedOrigin(origin) {
 }
 
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && !isAllowedOrigin(origin)) {
-    return res.status(403).json({ error: 'Origin not allowed' });
+  if (req.path.startsWith('/api/')) {
+    const origin = req.headers.origin;
+
+    if (origin && !isAllowedOrigin(origin)) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
   }
+
   next();
 });
 
