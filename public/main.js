@@ -51,12 +51,16 @@ function generateSecureToken(length = 24) {
   return result;
 }
 
-// ВАЖНО: больше не используем никакие "коды доступа" в ссылке.
-// Комната уникальна за счёт случайного roomId.
-function redirectToRoom(roomId, username) {
+function buildRoomUrl(roomId, username) {
   const params = new URLSearchParams();
   if (username) params.set('username', username);
-  window.location.href = `/room/${roomId}?${params.toString()}`;
+  const qs = params.toString();
+  return qs ? `/room/${encodeURIComponent(roomId)}?${qs}` : `/room/${encodeURIComponent(roomId)}`;
+}
+
+function redirectToRoom(roomId, username) {
+  const targetUrl = buildRoomUrl(roomId, username);
+  window.location.assign(targetUrl);
 }
 
 function removeLegacyJoinControls() {
@@ -159,14 +163,52 @@ function setupHomeActions() {
     return value;
   };
 
-  createRoomBtn.addEventListener('click', () => {
+  const goCreateRoom = () => {
     const roomId = `r_${generateSecureToken(24)}`;
     redirectToRoom(roomId, getUsername());
+  };
+
+  const goSoloRoom = () => {
+    redirectToRoom('solo', getUsername());
+  };
+
+  createRoomBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    goCreateRoom();
   });
 
-  soloWatchBtn.addEventListener('click', () => {
-    redirectToRoom('solo', getUsername());
+  soloWatchBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    goSoloRoom();
   });
+
+  usernameInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      goCreateRoom();
+    }
+  });
+
+  // Защитный delegated-handler в capture phase:
+  // если где-то есть конфликт обработчиков/перекрытий, кнопки все равно выполнят переход.
+  document.addEventListener('click', (event) => {
+    const createTarget = event.target?.closest?.('#createRoomBtn');
+    if (createTarget) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      goCreateRoom();
+      return;
+    }
+
+    const soloTarget = event.target?.closest?.('#soloWatchBtn');
+    if (soloTarget) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      goSoloRoom();
+    }
+  }, true);
 }
 
 document.addEventListener('DOMContentLoaded', setupHomeActions);
