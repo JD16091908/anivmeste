@@ -36,6 +36,38 @@
   <meta name="twitter:title" content="Anivmeste — смотри аниме вместе" />
   <meta name="twitter:description" content="Бесплатный сервис для совместного просмотра аниме с друзьями." />
   <meta name="twitter:image" content="https://anivmeste.ru/og-image.svg" />
+
+  <style>
+    /* Гарантируем, что floating-menu не перекрывает кнопки создания комнаты */
+    .floating-menu {
+      z-index: 10 !important;
+      pointer-events: auto;
+    }
+
+    /* Кнопки главного действия поверх всего */
+    .main-actions {
+      position: relative;
+      z-index: 20;
+    }
+
+    /* Модалки всегда поверх floating-menu */
+    .about-modal {
+      z-index: 1000 !important;
+    }
+
+    /* Убеждаемся что main-card выше floating-menu */
+    .main-card {
+      position: relative;
+      z-index: 15;
+    }
+
+    /* На мобильных floating-menu не должен перекрывать форму */
+    @media (max-width: 768px) {
+      .main-page {
+        padding-bottom: 130px !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="main-page">
@@ -126,7 +158,8 @@
     </main>
   </div>
 
-  <nav class="floating-menu" aria-label="Меню сайта">
+  <!-- floating-menu вынесен после main-page, z-index ниже чем у main-card -->
+  <nav class="floating-menu" aria-label="Меню сайта" style="z-index: 10;">
     <button id="aboutServiceBtn" class="about-service-btn" type="button" aria-haspopup="dialog" aria-controls="aboutModal">
       <span class="about-service-icon" aria-hidden="true">i</span>
       <span>О сервисе</span>
@@ -141,7 +174,8 @@
     </a>
   </nav>
 
-  <div id="aboutModal" class="about-modal hidden" aria-hidden="true">
+  <!-- ABOUT MODAL -->
+  <div id="aboutModal" class="about-modal hidden" aria-hidden="true" style="z-index: 1000;">
     <div class="about-modal-backdrop" id="aboutModalBackdrop"></div>
     <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
       <div class="about-modal-header">
@@ -183,7 +217,8 @@
     </div>
   </div>
 
-  <div id="supportModal" class="about-modal hidden" aria-hidden="true">
+  <!-- SUPPORT MODAL -->
+  <div id="supportModal" class="about-modal hidden" aria-hidden="true" style="z-index: 1000;">
     <div class="about-modal-backdrop" id="supportModalBackdrop"></div>
     <div class="about-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="supportModalTitle">
       <div class="about-modal-header">
@@ -199,7 +234,7 @@
         <section class="about-modal-section">
           <h2>Способы поддержки</h2>
           <div class="support-grid">
-          <a class="support-card support-card-boosty" id="supportBoostyLink"href="#"target="_blank" rel="noopener noreferrer nofollow">
+            <a class="support-card support-card-boosty" id="supportBoostyLink" href="#" target="_blank" rel="noopener noreferrer nofollow">
               <div class="support-card-head">
                 <div class="support-card-icon">B</div>
                 <div class="support-card-title-wrap">
@@ -209,7 +244,7 @@
               </div>
               <div class="support-card-action">Открыть Boosty</div>
             </a>
-           <a class="support-card support-card-da" href="https://www.donationalerts.com/r/anivmeste" target="_blank" rel="noopener noreferrer">
+            <a class="support-card support-card-da" href="https://www.donationalerts.com/r/anivmeste" target="_blank" rel="noopener noreferrer">
               <div class="support-card-head">
                 <div class="support-card-icon">₽</div>
                 <div class="support-card-title-wrap">

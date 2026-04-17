@@ -125,7 +125,6 @@ const userKey = getOrCreateUserKey();
 let isHost = false;
 let selectedAnime = null;
 let selectedPlayer = null;
-// selectedSeason оставляем для внутренней логики (фильтрация видео), но не показываем кнопку
 let selectedSeason = null;
 let latestSearchToken = 0;
 let pendingPlaybackApply = null;
@@ -439,9 +438,6 @@ function findDefaultContext(videos) {
 
 // ─── Синхронизация (хост → зрители) ──────────────────────────────────────────
 
-/**
- * Вычисляет актуальное время хоста с учётом задержки с момента последнего обновления.
- */
 function getInterpolatedHostTime() {
   if (lastKnownHostTime === null) return null;
   if (currentState.playback.paused) return lastKnownHostTime;
@@ -449,10 +445,6 @@ function getInterpolatedHostTime() {
   return lastKnownHostTime + elapsed;
 }
 
-/**
- * Применяет состояние воспроизведения к плееру.
- * Использует интерполяцию для компенсации сетевой задержки.
- */
 function applyPlaybackState(playback, { force = false } = {}) {
   if (!window.PlayerModule || !playback) return;
 
@@ -461,13 +453,11 @@ function applyPlaybackState(playback, { force = false } = {}) {
     ? playback.currentTime
     : null;
 
-  // Интерполируем время: компенсируем задержку с момента updatedAt
   if (targetTime !== null && !playback.paused && playback.updatedAt) {
     const networkDelay = Math.max(0, (now - Number(playback.updatedAt)) / 1000);
     targetTime = targetTime + networkDelay;
   }
 
-  // Seek только если нужно (не слишком часто и значимое расхождение)
   if (targetTime !== null) {
     const timeSinceLastApply = now - lastAppliedAt;
     const drift = Math.abs((lastAppliedTargetTime ?? -999) - targetTime);
@@ -479,7 +469,6 @@ function applyPlaybackState(playback, { force = false } = {}) {
     }
   }
 
-  // Play / Pause
   if (playback.paused) {
     try { window.PlayerModule.pause(); } catch {}
   } else {
@@ -487,9 +476,6 @@ function applyPlaybackState(playback, { force = false } = {}) {
   }
 }
 
-/**
- * Проверяет дрейф у зрителя и корректирует, если расхождение > SYNC_TOLERANCE_SEC.
- */
 function checkDrift() {
   if (isHost || roomId === 'solo') return;
   if (!currentState.embedUrl) return;
@@ -563,7 +549,6 @@ function stopUserTimeTimer() {
 
 // ─── Нативные события плеера ──────────────────────────────────────────────────
 
-// Обновляем currentState.playback.currentTime по событиям от PlayerModule
 window.addEventListener('player:time-update', (e) => {
   const seconds = e.detail?.time;
   if (typeof seconds !== 'number' || Number.isNaN(seconds) || seconds < 0) return;
@@ -582,7 +567,6 @@ window.addEventListener('player:duration-update', (e) => {
   if (typeof d === 'number' && d > 0) currentState.duration = d;
 });
 
-// Хост: события play/pause от самого плеера транслируем в комнату
 window.addEventListener('player:play', () => {
   if (!isHost || roomId === 'solo') return;
   currentState.playback.paused = false;
@@ -768,7 +752,6 @@ function loadIframe(embedUrl) {
     ? window.PlayerModule.detectPlayerType(embedUrl)
     : 'unknown';
 
-  // Зритель: пауза сразу, потом применяем синхронизацию
   if (!isHost && roomId !== 'solo') {
     setTimeout(() => {
       try { window.PlayerModule.pause(); } catch {}
@@ -818,7 +801,6 @@ function renderOverlayControls() {
   const byPlayer = getVideosBySelectedPlayer(videos);
   const seasons  = getUniqueSeasons(byPlayer);
 
-  // Внутренне выбираем сезон (для фильтрации серий), но кнопку не показываем
   if (!selectedSeason || !seasons.find(s => s.season === selectedSeason)) {
     selectedSeason = seasons[0]?.season || 1;
   }
@@ -829,20 +811,17 @@ function renderOverlayControls() {
   const currentPlayerData = players.find(p => p.name === selectedPlayer);
   const episodeCount = currentPlayerData ? currentPlayerData.count : episodes.length;
 
-  // ── Кнопка озвучки ──
   if (overlayPlayerBtnText) {
     overlayPlayerBtnText.textContent = selectedPlayer
       ? `${selectedPlayer} (${episodeCount} сер.)`
       : 'Озвучка';
   }
 
-  // ── Кнопка серии ──
   const currentEpNumber = currentState.episodeNumber || episodes[0]?.episodeNumber || 1;
   if (overlayEpisodeBtnText) {
     overlayEpisodeBtnText.textContent = `${currentEpNumber} серия`;
   }
 
-  // ── Меню озвучек ──
   if (overlayPlayerMenu) {
     overlayPlayerMenu.innerHTML = players.map(player => `
       <button
@@ -856,7 +835,6 @@ function renderOverlayControls() {
     `).join('');
   }
 
-  // ── Меню серий ──
   if (overlayEpisodeMenu) {
     overlayEpisodeMenu.innerHTML = episodes.map(episode => `
       <button
@@ -869,7 +847,6 @@ function renderOverlayControls() {
     `).join('');
   }
 
-  // ── Обработчики озвучек ──
   overlayPlayerMenu?.querySelectorAll('[data-player]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
@@ -890,7 +867,6 @@ function renderOverlayControls() {
     });
   });
 
-  // ── Обработчики серий ──
   overlayEpisodeMenu?.querySelectorAll('[data-episode]').forEach(btn => {
     btn.disabled = !canControl();
     btn.addEventListener('click', () => {
@@ -963,18 +939,23 @@ function scoreBucket(score) {
   return Math.floor((Number(score) || 0) / 8000);
 }
 
+// ─── ИСПРАВЛЕННАЯ СОРТИРОВКА: от новых к старым по году ──────────────────────
 function sortSearchResults(items) {
   return [...(items || [])].sort((a, b) => {
     const sA = Number(a?.score) || 0;
     const sB = Number(b?.score) || 0;
     const bA = scoreBucket(sA);
     const bB = scoreBucket(sB);
+
+    // 1. Сначала сортируем по bucket релевантности
     if (bB !== bA) return bB - bA;
 
+    // 2. Серийные приоритетнее фильмов
     const spA = Number(a?.serialPriority) || 0;
     const spB = Number(b?.serialPriority) || 0;
     if (spB !== spA) return spB - spA;
 
+    // 3. ТВ-индекс (ТВ-1, ТВ-2 и т.д.) — по возрастанию
     const tbA = extractTbIndex(a?.title);
     const tbB = extractTbIndex(b?.title);
     if (tbA !== null || tbB !== null) {
@@ -983,11 +964,15 @@ function sortSearchResults(items) {
       if (tbA !== tbB) return tbA - tbB;
     }
 
-    const yearA = Number(a?.year) || 9999;
-    const yearB = Number(b?.year) || 9999;
-    if (yearA !== yearB) return yearA - yearB;
+    // 4. ГОД: от новых к старым (ИСПРАВЛЕНО: было yearA - yearB)
+    const yearA = Number(a?.year) || 0;
+    const yearB = Number(b?.year) || 0;
+    if (yearA !== yearB) return yearB - yearA;
+
+    // 5. Если год одинаковый — по score
     if (sB !== sA) return sB - sA;
 
+    // 6. По алфавиту
     return String(a?.title || '').localeCompare(String(b?.title || ''), 'ru');
   });
 }
@@ -1407,7 +1392,6 @@ socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
 
   const newPaused = typeof paused === 'boolean' ? paused : action === 'pause';
 
-  // Обновляем эталонное время хоста для дрейф-коррекции
   lastKnownHostTime   = safeTime ?? 0;
   lastKnownHostTimeAt = Date.now();
 
@@ -1420,13 +1404,11 @@ socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
   const now = Date.now();
 
   if (action === 'play' || action === 'pause') {
-    // Для play/pause применяем немедленно с компенсацией задержки
     applyPlaybackState(currentState.playback, { force: true });
     lastAppliedAt = now;
     lastAppliedTargetTime = safeTime;
     lastForcedSyncAt = now;
   } else if (action === 'seek') {
-    // seek от хоста — применяем, если не делали это недавно
     if (now - lastAppliedAt > 300) {
       applyPlaybackState(currentState.playback, { force: true });
       lastAppliedAt = now;
@@ -1434,7 +1416,6 @@ socket.on('player-control', ({ action, currentTime, paused, updatedAt }) => {
       lastForcedSyncAt = now;
     }
   }
-  // timeupdate — только обновляем эталон, дрейф-чекер сам разберётся
 });
 
 socket.on('room-users', renderUsers);
