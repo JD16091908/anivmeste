@@ -70,6 +70,46 @@ body {
   white-space: nowrap;
 }
 
+.logo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(90deg, #5f7cff 0%, #7d74ff 52%, #ff6d97 100%);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(108, 98, 255, 0.26);
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease;
+}
+
+.logo-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 14px 34px rgba(108, 98, 255, 0.34);
+}
+
+.logo-btn:active {
+  transform: translateY(0);
+}
+
+.logo-btn-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.logo-btn-text {
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
 .top-center {
   display: flex;
   align-items: center;
@@ -1007,6 +1047,22 @@ body {
   .top-bar-left {
     grid-area: left;
     min-width: 0;
+  }
+
+  .logo-btn {
+    min-height: 40px;
+    padding: 0 12px 0 9px;
+    gap: 8px;
+    border-radius: 12px;
+  }
+
+  .logo-btn-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .logo-btn-text {
+    font-size: 23px;
   }
 
   .top-actions {

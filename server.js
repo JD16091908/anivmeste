@@ -1212,6 +1212,73 @@ function dedupeSearchResults(items, queryVariants) {
   return [...strictMap.values()];
 }
 
+function extractTvOrderIndexFromTitle(title) {
+  const t = String(title || '');
+  const m = t.match(/\[(?:tb|тв|tv)[- ]?(\d+)\]/i) || t.match(/\b(?:tb|тв|tv)[- ]?(\d+)\b/i);
+  if (!m) return 0;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getMatchPriority(item, normalizedQuery, expandedQueries = []) {
+  const variants = dedupeArray([normalizedQuery, ...(expandedQueries || [])])
+    .map(v => normalizeSearchText(v))
+    .filter(Boolean);
+
+  const titles = [item?.title, ...(item?.altTitles || [])]
+    .map(v => normalizeSearchText(v))
+    .filter(Boolean);
+
+  let best = 9;
+
+  for (const title of titles) {
+    for (const q of variants) {
+      if (!q || !title) continue;
+
+      if (title === q) {
+        best = Math.min(best, 0);
+      } else if (title.startsWith(q)) {
+        best = Math.min(best, 1);
+      } else if (title.includes(q) || q.includes(title)) {
+        best = Math.min(best, 2);
+      } else {
+        const qTokens = tokenizeSearchText(q);
+        const tTokens = tokenizeSearchText(title);
+        const allMatch = qTokens.length > 0 && qTokens.every(qt => tTokens.some(tt => tt === qt || tt.startsWith(qt)));
+        if (allMatch) best = Math.min(best, 3);
+      }
+    }
+  }
+
+  return best;
+}
+
+function compareSearchItemsStrictOrder(a, b) {
+  if ((a.matchPriority || 9) !== (b.matchPriority || 9)) {
+    return (a.matchPriority || 9) - (b.matchPriority || 9);
+  }
+
+  if ((b.serialPriority || 0) !== (a.serialPriority || 0)) {
+    return (b.serialPriority || 0) - (a.serialPriority || 0);
+  }
+
+  const yearA = Number(a.year) || 0;
+  const yearB = Number(b.year) || 0;
+  if (yearA !== yearB) return yearB - yearA;
+
+  const tvA = extractTvOrderIndexFromTitle(a.title);
+  const tvB = extractTvOrderIndexFromTitle(b.title);
+  if (tvA !== tvB) {
+    if (!tvA) return 1;
+    if (!tvB) return -1;
+    return tvA - tvB;
+  }
+
+  if ((b.score || 0) !== (a.score || 0)) return (b.score || 0) - (a.score || 0);
+
+  return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
+}
+
 function buildEpisodeIframe(link) {
   if (!link) return null;
   return String(link).startsWith('//') ? `https:${link}` : link;
@@ -1541,6 +1608,9 @@ async function handleKodikSearch(req, res) {
     }
 
     const normalizedQuery = normalizeSearchText(query);
+    const cached = getCachedSearch(normalizedQuery);
+    if (cached) return res.json(cached);
+
     const expandedQueries = expandQueryVariants(query);
 
     const primaryQueries = selectPrimaryKodikQueries(
@@ -1580,28 +1650,19 @@ async function handleKodikSearch(req, res) {
       .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
       .filter(item => item.score > 0);
 
-    const deduped = dedupeSearchResults(mapped, expandedQueries);
+    const deduped = dedupeSearchResults(mapped, expandedQueries)
+      .map(item => ({
+        ...item,
+        matchPriority: getMatchPriority(item, normalizedQuery, expandedQueries)
+      }));
 
-    deduped.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.serialPriority !== a.serialPriority) return b.serialPriority - a.serialPriority;
-      const yearA = Number(a.year) || 0;
-      const yearB = Number(b.year) || 0;
-      if (yearB !== yearA) return yearB - yearA;
-      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
-    });
+    deduped.sort(compareSearchItemsStrictOrder);
 
-    const topScore = deduped[0]?.score || 0;
-    const adaptiveThreshold = Math.max(1600, topScore - 9000);
+    const finalResults = deduped
+      .filter(item => item.score >= 1400 || item.matchPriority <= 2)
+      .slice(0, 24);
 
-    let finalResults = deduped.filter(item => item.score >= adaptiveThreshold);
-
-    if (finalResults.length < 8) {
-      finalResults = deduped.slice(0, 20);
-    } else {
-      finalResults = finalResults.slice(0, 20);
-    }
-
+    setCachedSearch(normalizedQuery, finalResults);
     return res.json(finalResults);
   } catch (error) {
     console.error('KODIK SEARCH ERROR:', error.message);
