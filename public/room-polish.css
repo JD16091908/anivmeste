@@ -1,0 +1,114 @@
+/* Visual polish layer for room buttons and clickable controls.
+   Include this file after room.css in room.html. */
+
+:root {
+  --btn-gradient: linear-gradient(90deg, #5f7cff 0%, #7d74ff 52%, #ff6d97 100%);
+  --btn-gradient-hover: linear-gradient(90deg, #6d88ff 0%, #8a82ff 52%, #ff7ca2 100%);
+  --btn-shadow: 0 10px 26px rgba(111, 109, 255, 0.35), 0 4px 14px rgba(255, 109, 151, 0.25);
+  --btn-shadow-hover: 0 16px 34px rgba(111, 109, 255, 0.42), 0 8px 20px rgba(255, 109, 151, 0.3);
+  --btn-text: #ffffff;
+}
+
+.room-page .small-btn,
+.room-page .btn,
+.room-page .watch-order-toggle,
+.room-page .overlay-control-btn,
+.room-page .search-results-toggle,
+.room-page .nickname-save-btn {
+  position: relative;
+  border: 0;
+  color: var(--btn-text);
+  background: var(--btn-gradient);
+  box-shadow: var(--btn-shadow);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  overflow: hidden;
+}
+
+.room-page .small-btn::before,
+.room-page .btn::before,
+.room-page .watch-order-toggle::before,
+.room-page .overlay-control-btn::before,
+.room-page .search-results-toggle::before,
+.room-page .nickname-save-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.32) 50%, transparent 100%);
+  transition: left 0.45s ease;
+  pointer-events: none;
+}
+
+.room-page .small-btn:hover,
+.room-page .btn:hover,
+.room-page .watch-order-toggle:hover,
+.room-page .overlay-control-btn:hover,
+.room-page .search-results-toggle:hover,
+.room-page .nickname-save-btn:hover {
+  background: var(--btn-gradient-hover);
+  filter: saturate(1.05);
+  box-shadow: var(--btn-shadow-hover);
+  transform: translateY(-1px);
+}
+
+.room-page .small-btn:hover::before,
+.room-page .btn:hover::before,
+.room-page .watch-order-toggle:hover::before,
+.room-page .overlay-control-btn:hover::before,
+.room-page .search-results-toggle:hover::before,
+.room-page .nickname-save-btn:hover::before {
+  left: 130%;
+}
+
+.room-page .small-btn:active,
+.room-page .btn:active,
+.room-page .watch-order-toggle:active,
+.room-page .overlay-control-btn:active,
+.room-page .search-results-toggle:active,
+.room-page .nickname-save-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 16px rgba(95, 124, 255, 0.32), 0 3px 10px rgba(255, 109, 151, 0.24);
+}
+
+.room-page .small-btn:disabled,
+.room-page .btn:disabled,
+.room-page .watch-order-toggle:disabled,
+.room-page .overlay-control-btn:disabled,
+.room-page .search-results-toggle:disabled,
+.room-page .nickname-save-btn:disabled {
+  filter: grayscale(0.35) opacity(0.7);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+
+.room-page .host-badge {
+  background: var(--btn-gradient);
+  color: #fff;
+  box-shadow: var(--btn-shadow);
+}
+
+.room-page .chat-input-box input:focus,
+.room-page .nickname-input:focus,
+.room-page .center-search-input:focus {
+  border-color: rgba(132, 131, 255, 0.85);
+  box-shadow: 0 0 0 3px rgba(132, 131, 255, 0.24);
+}
+
+.room-page .search-result-item:hover,
+.room-page .search-result-item.active,
+.room-page .overlay-dropdown-item:hover,
+.room-page .overlay-dropdown-item.active {
+  background: rgba(116, 133, 255, 0.22);
+}
+
+@media (max-width: 768px) {
+  .room-page .small-btn,
+  .room-page .btn,
+  .room-page .watch-order-toggle,
+  .room-page .nickname-save-btn {
+    min-height: 42px;
+  }
+}
