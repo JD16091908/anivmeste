@@ -1567,44 +1567,45 @@ async function handleKodikSearch(req, res) {
       }
     }
 
-    // ✅ ЖЁСТКАЯ ОЧИСТКА ТИПОВ
     rawResults = rawResults.filter(item => {
       const type = String(normalizeType(item) || '').toLowerCase();
-
       if (!type.includes('anime')) return false;
       if (type.includes('ova')) return false;
       if (type.includes('ona')) return false;
       if (type.includes('special')) return false;
-
       return true;
     });
 
-    const mapped = rawResults.map(item =>
-      makeSearchItem(item, expandedQueries, normalizedQuery)
-    );
+    const mapped = rawResults
+      .map(item => makeSearchItem(item, expandedQueries, normalizedQuery))
+      .filter(item => item.score > 0);
 
-    // ✅ УБИРАЕМ СЛАБЫЕ СОВПАДЕНИЯ
-    const strong = mapped.filter(item => item.score >= 4000);
+    const deduped = dedupeSearchResults(mapped, expandedQueries);
 
-    // ✅ СОРТИРОВКА
-    strong.sort((a, b) => {
+    deduped.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      if (b.serialPriority !== a.serialPriority) {
-        return b.serialPriority - a.serialPriority;
-      }
+      if (b.serialPriority !== a.serialPriority) return b.serialPriority - a.serialPriority;
       const yearA = Number(a.year) || 0;
       const yearB = Number(b.year) || 0;
-      return yearB - yearA;
+      if (yearB !== yearA) return yearB - yearA;
+      return String(a.title || '').localeCompare(String(b.title || ''), 'ru');
     });
 
-    // ✅ МАКСИМУМ 5
-    const finalResults = strong.slice(0, 5);
+    const topScore = deduped[0]?.score || 0;
+    const adaptiveThreshold = Math.max(1600, topScore - 9000);
 
-    res.json(finalResults);
+    let finalResults = deduped.filter(item => item.score >= adaptiveThreshold);
 
+    if (finalResults.length < 8) {
+      finalResults = deduped.slice(0, 20);
+    } else {
+      finalResults = finalResults.slice(0, 20);
+    }
+
+    return res.json(finalResults);
   } catch (error) {
     console.error('KODIK SEARCH ERROR:', error.message);
-    res.status(500).json({ error: 'Ошибка поиска', details: error.message });
+    return res.status(500).json({ error: 'Ошибка поиска', details: error.message });
   }
 }
 
