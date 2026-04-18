@@ -6,6 +6,8 @@
   <title>Комната просмотра — Anivmeste</title>
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="stylesheet" href="/room.css" />
+  <link rel="stylesheet" href="/room-mobile-fix.css" />
+  <link rel="stylesheet" href="/overlay-patch.css" />
   <style>
     .hidden {
       display: none !important;
@@ -26,7 +28,6 @@
 
 <div class="room-page" id="roomPage">
 
-  <!-- ═══════════════════════════ TOP BAR ═══════════════════════════ -->
   <header class="top-bar">
     <div class="top-bar-left">
       <a href="/" class="logo" style="text-decoration:none;color:inherit;">AniVmeste</a>
@@ -44,47 +45,10 @@
     </div>
   </header>
 
-  <!-- ═══════════════════════════ MAIN LAYOUT ═══════════════════════════ -->
   <div class="room-layout-centered">
 
-    <!-- ─── LEFT: PLAYER + SEARCH + ANIME INFO ─── -->
     <div class="player-area-centered">
 
-      <!-- PLAYER SHELL -->
-      <div class="player-shell player-shell-raised">
-        <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
-
-          <!-- Overlay controls (player + episode only, season removed) -->
-          <div class="player-top-overlay hidden" id="playerTopOverlay">
-            <div class="player-overlay-controls">
-
-              <!-- Озвучка -->
-              <div class="overlay-dropdown" id="overlayPlayerDropdown">
-                <button class="overlay-control-btn" id="overlayPlayerBtn" type="button" title="Выбрать озвучку">
-                  <span id="overlayPlayerBtnText">Озвучка</span>
-                  <span class="overlay-control-arrow">▾</span>
-                </button>
-                <div class="overlay-dropdown-menu" id="overlayPlayerMenu"></div>
-              </div>
-
-              <!-- Серия -->
-              <div class="overlay-dropdown" id="overlayEpisodeDropdown">
-                <button class="overlay-control-btn" id="overlayEpisodeBtn" type="button" title="Выбрать серию">
-                  <span id="overlayEpisodeBtnText">Серия</span>
-                  <span class="overlay-control-arrow">▾</span>
-                </button>
-                <div class="overlay-dropdown-menu-episodes" id="overlayEpisodeMenu"></div>
-              </div>
-
-            </div>
-          </div>
-          <!-- /overlay -->
-
-        </div>
-      </div>
-      <!-- /player-shell -->
-
-      <!-- SEARCH PANEL -->
       <div class="center-search-panel anime-search-section">
         <div class="center-search-head">
           <h2>🔍 Поиск аниме</h2>
@@ -104,24 +68,61 @@
         </div>
         <div class="center-search-status" id="searchStatus"></div>
       </div>
-      <!-- /search panel -->
 
-      <!-- SELECTED ANIME INFO -->
       <div class="selected-anime-panel" id="selectedAnimeInfo">
         <div class="empty-selected-anime">
           <p>Пока ничего не выбрано</p>
           <p class="small-note">Начните поиск аниме в поле выше.</p>
         </div>
       </div>
-      <!-- /anime info -->
+
+      <div class="player-shell player-shell-raised">
+        <div class="player-wrapper player-wrapper-overlay" id="playerWrapper">
+
+          <div class="player-top-overlay hidden" id="playerTopOverlay">
+            <div class="player-overlay-controls">
+
+              <div class="overlay-dropdown" id="overlayPlayerDropdown">
+                <button class="overlay-control-btn" id="overlayPlayerBtn" type="button" title="Выбрать озвучку">
+                  <span id="overlayPlayerBtnText">Озвучка</span>
+                  <span class="overlay-control-arrow">▾</span>
+                </button>
+                <div class="overlay-dropdown-menu" id="overlayPlayerMenu"></div>
+              </div>
+
+              <div class="overlay-dropdown" id="overlayEpisodeDropdown">
+                <button class="overlay-control-btn" id="overlayEpisodeBtn" type="button" title="Выбрать серию">
+                  <span id="overlayEpisodeBtnText">Серия</span>
+                  <span class="overlay-control-arrow">▾</span>
+                </button>
+                <div class="overlay-dropdown-menu-episodes" id="overlayEpisodeMenu"></div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
 
     </div>
-    <!-- /player-area-centered -->
 
-    <!-- ─── RIGHT: SIDEBAR ─── -->
     <aside class="right-sidebar">
 
-      <!-- Ник -->
+      <div class="chat-block block">
+        <h2>💬 Чат</h2>
+        <div id="chatMessages" class="chat-messages"></div>
+        <div class="chat-input-box">
+          <input
+            id="chatInput"
+            type="text"
+            maxlength="300"
+            placeholder="Сообщение..."
+            autocomplete="off"
+          />
+          <button id="sendBtn" class="small-btn btn" type="button">Отправить</button>
+        </div>
+      </div>
+
       <div class="block">
         <div class="nickname-panel">
           <span class="nickname-label">Ваш ник</span>
@@ -139,7 +140,6 @@
         </div>
       </div>
 
-      <!-- Зрители -->
       <div class="block">
         <h2>👥 Зрители</h2>
         <p class="users-caption muted-text">Участники комнаты и их прогресс</p>
@@ -148,32 +148,12 @@
         </div>
       </div>
 
-      <!-- Чат -->
-      <div class="chat-block block">
-        <h2>💬 Чат</h2>
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="chat-input-box">
-          <input
-            id="chatInput"
-            type="text"
-            maxlength="300"
-            placeholder="Сообщение..."
-            autocomplete="off"
-          />
-          <button id="sendBtn" class="small-btn btn" type="button">Отправить</button>
-        </div>
-      </div>
-
     </aside>
-    <!-- /right-sidebar -->
 
   </div>
-  <!-- /room-layout-centered -->
 
 </div>
-<!-- /room-page -->
 
-<!-- ═══════════════════════════ SUPPORT MODAL ═══════════════════════════ -->
 <div
   id="roomSupportModal"
   class="hidden"
@@ -261,10 +241,10 @@
   </div>
 </div>
 
-<!-- ═══════════════════════════ SCRIPTS ═══════════════════════════ -->
 <script src="/socket.io/socket.io.js"></script>
 <script src="/chat.js"></script>
 <script src="/player.js"></script>
+<script src="/overlay-autohide.js"></script>
 <script src="/room.js"></script>
 
 </body>
